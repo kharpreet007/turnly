@@ -10,6 +10,8 @@ await seedSelf(db);
 
 // WA_MODE=mock logs instead of calling Meta (local dev without credentials).
 const mock = process.env.WA_MODE === 'mock' || !process.env.META_SYSTEM_USER_TOKEN;
+// Mock mode never reaches Meta, so treat our templates as approved to let the whole flow run end to end.
+if (mock) await db.query(`update templates set status = 'approved' where business_id is null and status = 'pending'`);
 const wa: WhatsAppClient = mock
   ? (() => {
       const f = createFakeClient();
