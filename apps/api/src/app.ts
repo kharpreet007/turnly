@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, leadInput, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -105,13 +105,21 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       if (!tokenOk(token, config.adminToken)) return reply.code(401).send({ error: 'unauthorized' });
     });
 
+    admin.get('/admin/leads.csv', async (_req, reply) => {
+      const csv = leadsToCsv(await exportLeads(db));
+      return reply
+        .type('text/csv; charset=utf-8')
+        .header('content-disposition', 'attachment; filename="turnly-leads.csv"')
+        .send(csv);
+    });
+
     admin.get('/admin/leads', async (req, reply) => {
       const q = req.query as Record<string, string>;
       const rows = await listLeads(db, { status: q.status });
       if (q.format !== 'html') return rows;
       const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td></tr>`).join('');
       return reply.type('text/html').send(
-        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome</tr>${tr}</table>`);
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome</tr>${tr}</table>`);
     });
 
     admin.patch('/admin/leads/:id', async (req, reply) => {

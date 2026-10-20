@@ -186,3 +186,33 @@ describe('landing page', () => {
     expect(res.body).toContain('Get this set up for my salon');
   });
 });
+
+describe('lead export', () => {
+  const get = (app: any, headers: Record<string, string> = {}) => app.inject({ method: 'GET', url: '/admin/leads.csv', headers });
+
+  it('needs the admin token', async () => {
+    const app = await makeHarness().build();
+    expect((await get(app)).statusCode).toBe(401);
+  });
+
+  it('downloads a CSV Excel can open, with the phone kept intact', async () => {
+    const app = await makeHarness().build();
+    await post(app, validLead());
+    const res = await get(app, { authorization: 'Bearer admin-secret' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.headers['content-disposition']).toContain('turnly-leads.csv');
+    expect(res.body.charCodeAt(0)).toBe(0xfeff);
+    expect(res.body).toContain('"WhatsApp"');
+    expect(res.body).toContain('="+919876543210"');
+    expect(res.body).toContain('"Asha"');
+    expect(res.body).toContain('agree to be messaged');
+  });
+
+  it('defuses spreadsheet formulas typed into the form', async () => {
+    const app = await makeHarness().build();
+    await post(app, validLead({ name: '=HYPERLINK("http://evil","x")' }));
+    const res = await get(app, { authorization: 'Bearer admin-secret' });
+    expect(res.body).toContain(`"'=HYPERLINK(""http://evil"",""x"")"`);
+  });
+});
