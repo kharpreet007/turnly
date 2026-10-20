@@ -86,6 +86,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
         await queue.send('send_welcome', { leadId: r.leadId });
         await queue.send('alert_operator', { leadId: r.leadId });
         await queue.send('capi_lead', { leadId: r.leadId });
+        await queue.send('sheet_lead', { leadId: r.leadId });
       }
       return { ok: true, duplicate: r.duplicate };
     } catch (e) {

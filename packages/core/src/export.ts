@@ -19,7 +19,7 @@ export async function exportLeads(db: Db): Promise<LeadExportRow[]> {
   return rows;
 }
 
-const ist = (d: Date | string) =>
+export const ist = (d: Date | string) =>
   new Date(d).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).slice(0, 16);
 
 /** Stop spreadsheet formulas in user-supplied text (=, +, -, @ at the start). */

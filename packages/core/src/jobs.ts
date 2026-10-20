@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type { Db } from './db.ts';
 import { sendMessage, WINDOW_MS, type SendDeps } from './sendMessage.ts';
 import { processWebhook } from './webhook.ts';
+import { ist } from './export.ts';
+import { appendSheetRow, sheetConfig } from './sheets.ts';
 
 export interface JobDeps extends SendDeps {
   fetchImpl?: typeof fetch;
@@ -84,5 +86,24 @@ export async function handleCapi(deps: JobDeps, data: { leadId: string }) {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`CAPI ${res.status}`);
+  return { skipped: false };
+}
+
+/** Appends a new lead to the Google Sheet, once. Does nothing when the Google settings are not set. */
+export async function handleSheetLead(deps: JobDeps, data: { leadId: string }) {
+  const cfg = sheetConfig(deps.env ?? process.env);
+  if (!cfg) return { skipped: true, reason: 'not_configured' };
+  const { rows: [l] } = await deps.db.query(
+    `select l.id, l.created_at, l.name, l.phone_e164, l.business_type, l.ad_source, l.wants, l.est_monthly_loss,
+            l.utm, l.consent_text, l.sheet_synced_at, c.opt_in
+       from leads l join contacts c on c.id = l.contact_id where l.id = $1`, [data.leadId]);
+  if (!l || l.sheet_synced_at) return { skipped: true, reason: 'already_synced' };
+  const utm = Object.entries((l.utm ?? {}) as Record<string, string>).map(([k, v]) => `${k}=${v}`).join('; ');
+  await appendSheetRow(cfg, [
+    ist(l.created_at), l.name, l.phone_e164, l.business_type, l.ad_source ?? '',
+    Array.isArray(l.wants) ? l.wants.join('; ') : '', String(l.est_monthly_loss ?? ''),
+    l.opt_in ? 'yes' : 'no', l.consent_text, utm, l.id, 'new', '',
+  ], deps.fetchImpl ?? fetch);
+  await deps.db.query('update leads set sheet_synced_at = now() where id = $1', [l.id]);
   return { skipped: false };
 }

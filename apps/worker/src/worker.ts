@@ -1,6 +1,6 @@
 import {
   createCloudClient, createDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
-  handleWebhookJob, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
+  handleSheetLead, handleWebhookJob, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
 const url = process.env.DATABASE_URL!;
@@ -29,6 +29,7 @@ const each = <T>(fn: (d: T) => Promise<unknown>) => async (jobs: J<T>) => { for 
 await boss.work('send_welcome', each((d: { leadId: string }) => handleSendWelcome(deps, d)));
 await boss.work('alert_operator', each((d: { leadId: string }) => handleAlertOperator(deps, d)));
 await boss.work('wa_webhook', each((d: unknown) => handleWebhookJob(deps, d)));
+await boss.work('sheet_lead', each((d: { leadId: string }) => handleSheetLead(deps, d)));
 await boss.work('capi_lead', each((d: { leadId: string }) => handleCapi(deps, d)));
 console.log('worker ready');
 
