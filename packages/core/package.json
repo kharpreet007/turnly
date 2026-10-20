@@ -1,0 +1,1 @@
+{"name":"@turnly/core","version":"0.1.0","private":true,"type":"module","main":"src/index.ts","dependencies":{"pg":"^8.23.1","pg-boss":"^12.38.0","zod":"^4.6.7"}}

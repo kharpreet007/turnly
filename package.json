@@ -1,0 +1,25 @@
+{
+  "name": "turnly",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "tsx watch --env-file-if-exists=.env apps/api/src/server.ts",
+    "dev:worker": "tsx watch --env-file-if-exists=.env apps/worker/src/worker.ts",
+    "migrate": "tsx --env-file-if-exists=.env packages/core/src/migrate-cli.ts",
+    "simulate": "tsx --env-file-if-exists=.env scripts/simulate-webhook.ts",
+    "templates": "tsx --env-file-if-exists=.env scripts/templates-cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

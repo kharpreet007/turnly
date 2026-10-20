@@ -1,0 +1,30 @@
+# Render blueprint: one web service (API) + one worker. Postgres is on Neon (set DATABASE_URL by hand).
+# Region: Singapore (closest to India on Render); on Neon pick ap-southeast-1.
+services:
+  - type: web
+    name: turnly-api
+    runtime: docker
+    region: singapore
+    healthCheckPath: /healthz
+    envVars: &env
+      - { key: DATABASE_URL, sync: false }
+      - { key: PUBLIC_BASE_URL, sync: false }
+      - { key: ALLOWED_ORIGINS, sync: false }
+      - { key: ADMIN_TOKEN, sync: false }
+      - { key: META_APP_ID, sync: false }
+      - { key: META_APP_SECRET, sync: false }
+      - { key: META_VERIFY_TOKEN, sync: false }
+      - { key: META_SYSTEM_USER_TOKEN, sync: false }
+      - { key: WABA_ID, sync: false }
+      - { key: PHONE_NUMBER_ID, sync: false }
+      - { key: OPERATOR_ALERT_PHONE, sync: false }
+      - { key: ENCRYPTION_KEY, sync: false }
+      - { key: META_PIXEL_ID, sync: false }
+      - { key: META_CAPI_TOKEN, sync: false }
+      - { key: SENTRY_DSN, sync: false }
+  - type: worker
+    name: turnly-worker
+    runtime: docker
+    region: singapore
+    dockerCommand: npx tsx apps/worker/src/worker.ts
+    envVars: *env
