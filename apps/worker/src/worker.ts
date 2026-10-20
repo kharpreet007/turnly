@@ -1,10 +1,11 @@
 import {
-  createCloudClient, createDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
+  createCloudClient, createDb, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
   handleSheetLead, handleWebhookJob, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
 const url = process.env.DATABASE_URL!;
 const db = createDb(url);
+await waitForDb(db);
 await migrate(db);
 await seedSelf(db);
 

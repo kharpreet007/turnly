@@ -1,9 +1,10 @@
-import { createDb, migrate, seedSelf, startBoss } from '@turnly/core';
+import { createDb, migrate, seedSelf, startBoss, waitForDb } from '@turnly/core';
 import { buildApp } from './app.ts';
 import { loadConfig } from './config.ts';
 
 const config = loadConfig();
 const db = createDb(config.databaseUrl);
+await waitForDb(db);
 await migrate(db);
 await seedSelf(db);
 const { queue, boss } = await startBoss(config.databaseUrl);
