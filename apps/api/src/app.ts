@@ -2,6 +2,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   createLead, leadInput, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
@@ -22,6 +25,16 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
 
   await app.register(cors, { origin: config.allowedOrigins.length ? config.allowedOrigins : false });
   await app.register(rateLimit, { global: false });
+
+  // The landing page, served from the same origin so the form posts to this API (no CORS needed).
+  const landingPath = join(dirname(fileURLToPath(import.meta.url)), '../../../landing/index.html');
+  app.get('/', async (_req, reply) => {
+    const page = readFileSync(landingPath, 'utf8');
+    return reply.type('text/html; charset=utf-8').send(
+      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
+      '<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>' +
+      '<script>window.TURNLY_API_BASE = location.origin;</script>' + page);
+  });
 
   app.get('/healthz', async () => {
     await db.query('select 1');

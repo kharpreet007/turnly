@@ -175,3 +175,14 @@ describe('admin leads', () => {
     expect(ok.json()).toHaveLength(1);
   });
 });
+
+describe('landing page', () => {
+  it('is served at / and told which API to post to', async () => {
+    const app = await makeHarness().build();
+    const res = await app.inject({ method: 'GET', url: '/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.body).toContain('window.TURNLY_API_BASE = location.origin');
+    expect(res.body).toContain('Get this set up for my salon');
+  });
+});

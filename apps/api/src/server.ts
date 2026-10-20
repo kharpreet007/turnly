@@ -14,3 +14,6 @@ process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
 
 await app.listen({ port: config.port, host: '0.0.0.0' });
+
+// One-service deploys: RUN_WORKER=1 runs the queue worker inside this process.
+if (process.env.RUN_WORKER === '1') await import('../../worker/src/worker.ts');

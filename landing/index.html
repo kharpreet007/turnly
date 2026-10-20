@@ -371,7 +371,7 @@ footer nav { padding: 0; display: flex; gap: 20px; }
 
 <script>
 (function () {
-  var API_BASE = '';          // set to the Turnly API origin to submit for real; empty runs preview mode
+  var API_BASE = window.TURNLY_API_BASE || '';   // set when served by the Turnly API; empty runs preview mode
   var P = { reply: '₹3,999', remind: '₹699', ret: '₹799' };
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
