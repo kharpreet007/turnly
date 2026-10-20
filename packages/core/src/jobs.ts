@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Db } from './db.ts';
-import { sendMessage, type SendDeps } from './sendMessage.ts';
+import { sendMessage, WINDOW_MS, type SendDeps } from './sendMessage.ts';
 import { processWebhook } from './webhook.ts';
 
 export interface JobDeps extends SendDeps {
@@ -24,19 +24,28 @@ export async function handleSendWelcome(deps: JobDeps, data: { leadId: string })
   return res;
 }
 
-/** Tell every allow-listed operator number about a new lead. */
+/**
+ * Tell every allow-listed operator number about a new lead. Inside the 24h window (the operator
+ * messaged the number recently) this is a plain text, so it works before any template is approved.
+ * Outside the window it falls back to the approved template.
+ */
 export async function handleAlertOperator(deps: JobDeps, data: { leadId: string }) {
   const { rows: [l] } = await deps.db.query(
     `select l.business_id, l.name, l.business_type, l.phone_e164, coalesce(l.ad_source, 'direct') as src, b.owner_phone_e164s
        from leads l join businesses b on b.id = l.business_id where l.id = $1`, [data.leadId]);
   if (!l) return [];
+  const now = (deps.now ?? (() => new Date()))();
   const results = [];
   for (const phone of l.owner_phone_e164s as string[]) {
-    const { rows: [c] } = await deps.db.query('select id from contacts where business_id = $1 and phone_e164 = $2', [l.business_id, phone]);
+    const { rows: [c] } = await deps.db.query(
+      'select id, last_inbound_at from contacts where business_id = $1 and phone_e164 = $2', [l.business_id, phone]);
     if (!c) continue;
+    const inWindow = !!c.last_inbound_at && now.getTime() - new Date(c.last_inbound_at).getTime() < WINDOW_MS;
+    const payload = inWindow
+      ? { kind: 'text' as const, body: `New Turnly demo request: ${l.name} (${l.business_type}), ${l.phone_e164}. Source: ${l.src}.` }
+      : { kind: 'template' as const, name: 'turnly_operator_new_lead', language: 'en', variables: [l.name, l.business_type, l.phone_e164, l.src] };
     results.push(await sendMessage(deps, {
-      businessId: l.business_id, contactId: c.id, purpose: 'operator_alert',
-      payload: { kind: 'template', name: 'turnly_operator_new_lead', language: 'en', variables: [l.name, l.business_type, l.phone_e164, l.src] },
+      businessId: l.business_id, contactId: c.id, purpose: 'operator_alert', payload,
       dedupeKey: `alert:${data.leadId}:${c.id}`, actor: 'operator_alert',
     }));
   }
