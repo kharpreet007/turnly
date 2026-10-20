@@ -1,0 +1,382 @@
+<title>Turnly</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+/* Layout: single column marketing page. Hero (copy + phone), cost calculator, offers as hairline columns, ink form band. */
+:root {
+  --bg: #ffffff;
+  --fg: #0c0e12;
+  --muted: #5d6572;
+  --line: #e3e6ea;
+  --soft: #f4f6f8;
+  --accent: #0a7d63;
+  --accent-fg: #ffffff;
+  --band: #0c0e12;
+  --band-fg: #f3f5f7;
+  --band-muted: #9aa3b0;
+  --bubble-in: #e9edf1;
+  --bubble-out: #d4f1e6;
+  --bad: #b3261e;
+  --bad-soft: #fcebe9;
+  --f-body: 'Geist', system-ui, sans-serif;
+  --f-serif: 'Instrument Serif', Georgia, serif;
+  --f-mono: 'Geist Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0b0e; --fg: #f1f3f6; --muted: #98a1ae; --line: #22262d; --soft: #13161b;
+    --accent: #38c9a4; --accent-fg: #04201a; --band: #13161b; --band-fg: #f1f3f6; --band-muted: #98a1ae;
+    --bubble-in: #1d2128; --bubble-out: #123a30; --bad: #ff8a80; --bad-soft: #35191a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0b0e; --fg: #f1f3f6; --muted: #98a1ae; --line: #22262d; --soft: #13161b;
+  --accent: #38c9a4; --accent-fg: #04201a; --band: #13161b; --band-fg: #f1f3f6; --band-muted: #98a1ae;
+  --bubble-in: #1d2128; --bubble-out: #123a30; --bad: #ff8a80; --bad-soft: #35191a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0; }
+.in { max-width: 1120px; margin: 0 auto; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+h1 { font-size: clamp(40px, 6.4vw, 72px); line-height: 1.02; letter-spacing: -0.035em; }
+h1 em, h2 em { font-family: var(--f-serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; color: var(--accent); }
+h2 { font-size: clamp(28px, 4vw, 44px); line-height: 1.08; }
+p { margin: 0; }
+a { color: inherit; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 14px 24px; font: 600 15px var(--f-body); background: var(--fg); color: var(--bg); text-decoration: none; cursor: pointer; }
+.btn.accent { background: var(--accent); color: var(--accent-fg); }
+.btn.line { background: transparent; color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding-block: 20px; }
+.logo { font-weight: 700; font-size: 20px; letter-spacing: -0.03em; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.logo i { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); display: block; }
+nav .btn { padding: 10px 18px; font-size: 14px; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(32px, 6vw, 80px); align-items: center; padding-block: clamp(32px, 7vw, 88px) clamp(56px, 8vw, 104px); }
+.hero .lede { font-size: clamp(17px, 2vw, 20px); color: var(--muted); max-width: 46ch; margin-top: 24px; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 40px; font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); }
+.facts span::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+
+/* phone */
+.stage { position: relative; display: flex; justify-content: center; padding-bottom: 24px; }
+.phone { width: min(100%, 340px); border-radius: 36px; background: var(--soft); box-shadow: 0 0 0 1px var(--line), 0 30px 60px -30px rgba(12, 14, 18, .35); overflow: hidden; }
+.p-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.p-av { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.p-head b { display: block; font-size: 14px; line-height: 1.2; }
+.p-head small { color: var(--muted); font-size: 12px; }
+.p-body { padding: 18px 14px 22px; display: flex; flex-direction: column; gap: 8px; min-height: 380px; }
+.b { max-width: 82%; padding: 9px 12px; border-radius: 16px; font-size: 14px; line-height: 1.4; }
+.b.in { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; }
+.b.out { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
+.b ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.b li { display: flex; justify-content: space-between; gap: 16px; }
+.b li span:last-child { font-family: var(--f-mono); }
+.stamp { align-self: center; font-family: var(--f-mono); font-size: 11px; color: var(--muted); padding: 2px 0 4px; }
+.alert { position: absolute; right: -4px; bottom: -4px; width: min(86%, 270px); background: var(--bg); border-radius: 16px; padding: 14px; box-shadow: 0 0 0 1px var(--line), 0 18px 40px -18px rgba(12, 14, 18, .45); font-size: 13px; }
+.alert .eyebrow { color: var(--accent); }
+.alert b { display: block; margin: 4px 0 10px; font-size: 14px; line-height: 1.3; }
+.alert .row { display: flex; gap: 8px; }
+.alert .row span { flex: 1; text-align: center; padding: 7px 6px; border-radius: 999px; font-weight: 600; font-size: 12.5px; box-shadow: inset 0 0 0 1px var(--line); }
+.alert .row span:first-child { background: var(--accent); color: var(--accent-fg); box-shadow: none; }
+
+section { padding-block: clamp(56px, 8vw, 104px); }
+.head { display: flex; flex-direction: column; gap: 14px; max-width: 640px; margin-bottom: 48px; }
+.head p { color: var(--muted); font-size: 18px; }
+.top-line { border-top: 1px solid var(--line); }
+
+/* steps: order matters */
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; counter-reset: s; }
+.step { padding: 28px 28px 8px 0; border-top: 2px solid var(--fg); }
+.step + .step { padding-left: 28px; }
+.step::before { counter-increment: s; content: 'Step ' counter(s); font-family: var(--f-mono); font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.step h3 { font-size: 22px; margin: 12px 0 8px; }
+.step p { color: var(--muted); }
+
+/* cost */
+.cost { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 6vw, 80px); align-items: center; }
+.ctl { display: flex; flex-direction: column; gap: 26px; }
+.ctl label { display: flex; flex-direction: column; gap: 10px; font-weight: 500; }
+.ctl .v { font-family: var(--f-mono); font-weight: 500; float: right; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.big { background: var(--soft); border-radius: 24px; padding: clamp(24px, 4vw, 44px); }
+.big .n { font-size: clamp(44px, 7vw, 84px); font-weight: 600; letter-spacing: -0.04em; line-height: 1; margin: 14px 0; font-variant-numeric: tabular-nums; }
+.big p { color: var(--muted); font-size: 14px; max-width: 42ch; }
+
+/* offers */
+.offers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.offer { padding: 32px 28px 36px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid var(--line); }
+.offer:last-child { border-right: 0; }
+.offer.hl { background: var(--band); color: var(--band-fg); border-right: 0; border-radius: 0 0 0 0; }
+.offer.hl p, .offer.hl li { color: var(--band-muted); }
+.offer .tag { font-family: var(--f-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.offer h3 { font-size: 30px; }
+.price { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.price small { font-size: 14px; font-weight: 400; color: var(--muted); }
+.offer.hl .price small { color: var(--band-muted); }
+.offer ul { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 15px; color: var(--muted); }
+.offer li::before { content: ''; display: inline-block; width: 12px; height: 7px; border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg) translateY(-3px); margin-right: 12px; }
+.lite { margin-top: 20px; color: var(--muted); font-size: 14px; }
+
+/* form band */
+.band { background: var(--band); color: var(--band-fg); margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-inline: max(16px, env(safe-area-inset-left, 0px)); }
+.band .in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: clamp(32px, 6vw, 88px); align-items: start; }
+.band .eyebrow, .band .lede { color: var(--band-muted); }
+.band .lede { margin-top: 18px; font-size: 18px; max-width: 40ch; }
+.band h2 em { color: #38c9a4; }
+.form { background: var(--bg); color: var(--fg); border-radius: 24px; padding: clamp(22px, 4vw, 36px); }
+.form h3 { font-size: 22px; margin-bottom: 4px; }
+.form > p { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
+form { display: flex; flex-direction: column; gap: 16px; }
+.fld { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.fld input, .fld select { font: 400 16px var(--f-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; width: 100%; min-width: 0; }
+.fld input:focus, .fld select:focus { border-color: var(--accent); outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.ph { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px; }
+.consent { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; color: var(--muted); font-weight: 400; }
+.consent input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--accent); flex: none; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.err { background: var(--bad-soft); color: var(--bad); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.form .btn { width: 100%; padding: 16px; font-size: 16px; }
+.ok { text-align: center; padding: 18px 4px; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.ok .tick { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 26px; }
+.ok p { color: var(--muted); max-width: 34ch; }
+.fallback { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; text-align: left; width: 100%; }
+.fallback textarea { font: 13px var(--f-mono); background: var(--soft); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; width: 100%; min-height: 110px; }
+.preview-note { margin-top: 14px; font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); text-align: center; }
+
+footer { padding-block: 40px 56px; display: flex; flex-wrap: wrap; gap: 12px 32px; justify-content: space-between; color: var(--muted); font-size: 13px; }
+footer nav { padding: 0; display: flex; gap: 20px; }
+
+@media (max-width: 900px) {
+  .hero, .cost, .band .in { grid-template-columns: minmax(0, 1fr); }
+  .steps { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .step, .step + .step { padding-left: 0; }
+  .offers { grid-template-columns: minmax(0, 1fr); }
+  .offer { border-right: 0; border-bottom: 1px solid var(--line); }
+  .offer.hl { border-bottom: 0; }
+  .alert { right: 0; }
+}
+@media (prefers-reduced-motion: no-preference) { .btn { transition: transform .15s ease; } .btn:hover { transform: translateY(-1px); } }
+</style>
+
+<div class="in">
+  <nav>
+    <a class="logo" href="#top"><i></i>Turnly</a>
+    <a class="btn" href="#demo">Get a demo</a>
+  </nav>
+
+  <header class="hero" id="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">WhatsApp for salons</div>
+      <h1 style="margin-top:18px" id="h1">Every salon enquiry, answered in <em>seconds</em>.</h1>
+      <p class="lede" id="lede">Turnly replies to your customers on WhatsApp the moment they message, shares your prices, and collects the booking while you work.</p>
+      <div class="actions">
+        <a class="btn accent" href="#demo">Get a free demo</a>
+        <a class="btn line" href="#offers">See what is included</a>
+      </div>
+      <div class="facts"><span>Replies in under 10 seconds</span><span>Runs 24 hours</span><span>Your own WhatsApp number</span></div>
+    </div>
+    <div class="stage" aria-label="Example WhatsApp conversation">
+      <div class="phone">
+        <div class="p-head"><div class="p-av" id="p-av">G</div><div><b id="p-name">Glow Studio</b><small>Replies instantly</small></div></div>
+        <div class="p-body" id="p-body"></div>
+      </div>
+      <div class="alert" id="alert"></div>
+    </div>
+  </header>
+</div>
+
+<div class="top-line"><div class="in">
+  <section>
+    <div class="head"><div class="eyebrow">How it works</div><h2>You stay behind the chair. Your <em>WhatsApp</em> keeps working.</h2></div>
+    <div class="steps">
+      <div class="step"><h3>A customer messages</h3><p>"Price?", "Are you open?", "Book me Saturday". It can be 11 pm or mid-appointment.</p></div>
+      <div class="step"><h3>Turnly replies at once</h3><p>Greets them, shares your price list and timings, and asks the service, day, time and name for the booking.</p></div>
+      <div class="step"><h3>You confirm with one tap</h3><p>The request lands on your WhatsApp with Confirm and Suggest another time. The customer gets your answer straight away.</p></div>
+    </div>
+  </section>
+</div></div>
+
+<div class="top-line"><div class="in">
+  <section>
+    <div class="cost">
+      <div class="ctl">
+        <div class="head" style="margin:0"><div class="eyebrow">What slow replies cost</div><h2>Check the number for <em>your</em> <span id="biz-word">salon</span>.</h2></div>
+        <label for="c-enq">Enquiries a week <span class="v" id="v-enq">30</span></label>
+        <input type="range" id="c-enq" min="5" max="150" step="5" value="30">
+        <label for="c-tix">Average bill <span class="v" id="v-tix">₹800</span></label>
+        <input type="range" id="c-tix" min="200" max="5000" step="100" value="800">
+      </div>
+      <div class="big">
+        <div class="eyebrow">Possibly lost each month</div>
+        <div class="n" id="loss">₹0</div>
+        <p>Assumes 3 in 10 enquiries go cold when the first reply takes hours. Change the sliders to your own figures.</p>
+      </div>
+    </div>
+  </section>
+</div></div>
+
+<div class="top-line" id="offers"><div class="in">
+  <section>
+    <div class="head"><div class="eyebrow">What you can switch on</div><h2>Start with replies. Add the rest when you want it.</h2></div>
+    <div class="offers">
+      <div class="offer hl">
+        <span class="tag">Start here</span><h3>Reply</h3>
+        <div class="price" data-price="reply">₹3,999 <small>setup + ₹999 a month</small></div>
+        <p>Never leave a message unanswered again.</p>
+        <ul><li>Instant reply to every first message</li><li>Price list and catalogue on request</li><li>Booking requests collected</li><li>Alert to your WhatsApp</li></ul>
+      </div>
+      <div class="offer">
+        <span class="tag">Add-on</span><h3>Remind</h3>
+        <div class="price" data-price="remind">₹699 <small>a month</small></div>
+        <p>Fewer empty chairs.</p>
+        <ul><li>Booking confirmation</li><li>Reminders a day and two hours before</li><li>Easy reschedule or cancel</li></ul>
+      </div>
+      <div class="offer">
+        <span class="tag">Add-on</span><h3>Return</h3>
+        <div class="price" data-price="return">₹799 <small>a month</small></div>
+        <p>Bring regulars back.</p>
+        <ul><li>Win-back messages after 45 days away</li><li>Only to customers who agreed</li><li>You approve every message</li></ul>
+      </div>
+    </div>
+    <p class="lite">Just want auto-replies and a price list? Reply Lite is ₹1,999 one-time.</p>
+  </section>
+</div></div>
+
+<div class="band" id="demo"><div class="in">
+  <section>
+    <div class="eyebrow">Free demo</div>
+    <h2 style="margin-top:14px">See it answer a <em>customer</em> on your own phone.</h2>
+    <p class="lede">Tell us where to send it. A welcome message arrives on WhatsApp within seconds, then you can try the replies yourself.</p>
+  </section>
+  <section>
+    <div class="form" id="form-card">
+      <h3>Get your demo</h3>
+      <p>Takes 20 seconds. No payment, no app.</p>
+      <form id="lead-form" novalidate>
+        <label class="fld" for="f-biz">Business type
+          <select id="f-biz"><option value="salon">Salon</option><option value="clinic">Clinic</option><option value="gym">Gym</option><option value="coaching">Coaching</option><option value="restaurant">Restaurant</option><option value="retail">Retail</option><option value="property">Property</option><option value="other">Other</option></select>
+        </label>
+        <label class="fld" for="f-name">Your name<input id="f-name" type="text" autocomplete="name" placeholder="Asha Verma"></label>
+        <label class="fld" for="f-phone">WhatsApp number
+          <div class="ph">
+            <select id="f-cc" aria-label="Country code"><option value="91">+91 India</option><option value="971">+971 UAE</option><option value="44">+44 UK</option><option value="65">+65 Singapore</option></select>
+            <input id="f-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="98765 43210">
+          </div>
+        </label>
+        <input class="hp" id="f-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <label class="consent" for="f-ok"><input id="f-ok" type="checkbox"><span id="consent-text">I agree to be messaged on WhatsApp by Turnly about this demo.</span></label>
+        <div id="form-err" role="alert"></div>
+        <button class="btn accent" type="submit" id="f-go">Send me the demo</button>
+      </form>
+    </div>
+  </section>
+</div></div>
+
+<div class="in">
+  <footer>
+    <span>© Turnly. Automations for appointment businesses.</span>
+    <nav><a href="#">Privacy</a><a href="#">Terms</a></nav>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var API_BASE = '';          // set to the Turnly API origin to submit for real; empty runs preview mode
+  var P = { reply: '₹3,999', remind: '₹699', ret: '₹799' };
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
+
+  // Business copy, keyed by the #token in the ad link (e.g. #salon-fb1).
+  var BIZ = {
+    salon:      { word: 'salon', eyebrow: 'WhatsApp for salons', name: 'Glow Studio', ask: 'Haircut price?', svc: [['Haircut', '₹400'], ['Colour', '₹1,800'], ['Facial', '₹900']], book: 'Book Saturday 4 pm', booking: 'Haircut · Sat 4 pm', ticket: 800 },
+    clinic:     { word: 'clinic', eyebrow: 'WhatsApp for clinics', name: 'City Clinic', ask: 'Consultation fee?', svc: [['Consultation', '₹500'], ['Follow-up', '₹300'], ['Check-up', '₹1,200']], book: 'Book Saturday 4 pm', booking: 'Consultation · Sat 4 pm', ticket: 700 },
+    gym:        { word: 'gym', eyebrow: 'WhatsApp for gyms', name: 'Iron House', ask: 'Membership price?', svc: [['Monthly', '₹1,500'], ['Quarterly', '₹3,900'], ['Trial day', '₹100']], book: 'Book a trial Saturday', booking: 'Trial · Sat 7 am', ticket: 2500 },
+    coaching:   { word: 'coaching centre', eyebrow: 'WhatsApp for coaching', name: 'Bright Minds', ask: 'Batch fees?', svc: [['Maths batch', '₹2,500'], ['Science batch', '₹2,500'], ['Demo class', 'Free']], book: 'Book a demo class', booking: 'Demo class · Sat 4 pm', ticket: 3000 },
+    restaurant: { word: 'restaurant', eyebrow: 'WhatsApp for restaurants', name: 'Spice Route', ask: 'Table for 4 tonight?', svc: [['Lunch set', '₹350'], ['Dinner for 2', '₹1,400'], ['Party of 8+', 'Ask']], book: 'Book 4 at 8 pm', booking: 'Table for 4 · 8 pm', ticket: 1500 },
+    retail:     { word: 'shop', eyebrow: 'WhatsApp for shops', name: 'Urban Threads', ask: 'Is the blue kurta in stock?', svc: [['Kurtas', 'from ₹899'], ['Dupattas', 'from ₹399'], ['Sets', 'from ₹1,799']], book: 'Hold it for me', booking: 'Hold: blue kurta, M', ticket: 1200 },
+    property:   { word: 'agency', eyebrow: 'WhatsApp for property', name: 'Homefinder', ask: '2BHK rent in Andheri?', svc: [['2BHK rent', '₹38k+'], ['1BHK rent', '₹26k+'], ['Buy', 'From ₹1.1 Cr']], book: 'Book a visit Saturday', booking: 'Site visit · Sat 11 am', ticket: 8000 },
+    other:      { word: 'business', eyebrow: 'WhatsApp for appointment businesses', name: 'Your Business', ask: 'What are your rates?', svc: [['Service A', '₹500'], ['Service B', '₹900'], ['Service C', '₹1,500']], book: 'Book Saturday 4 pm', booking: 'Service A · Sat 4 pm', ticket: 1000 }
+  };
+  var cur = 'salon';
+
+  function applyBiz(key) {
+    var b = BIZ[key] || BIZ.salon; cur = BIZ[key] ? key : 'salon';
+    $('eyebrow').textContent = b.eyebrow;
+    $('h1').innerHTML = 'Every ' + esc(b.word) + ' enquiry, answered in <em>seconds</em>.';
+    $('biz-word').textContent = b.word;
+    $('p-name').textContent = b.name; $('p-av').textContent = b.name.charAt(0);
+    $('f-biz').value = cur;
+    $('p-body').innerHTML =
+      '<div class="stamp">Tonight, 10:42 pm</div>' +
+      '<div class="b in">' + esc(b.ask) + '</div>' +
+      '<div class="b out">Hi, welcome to ' + esc(b.name) + '. Here is what we offer:<ul>' + b.svc.map(function (s) { return '<li><span>' + esc(s[0]) + '</span><span>' + esc(s[1]) + '</span></li>'; }).join('') + '</ul></div>' +
+      '<div class="stamp">4 seconds later</div>' +
+      '<div class="b in">' + esc(b.book) + '</div>' +
+      '<div class="b out">Done. We have your request and will confirm at 10 am.</div>';
+    $('alert').innerHTML = '<div class="eyebrow">Sent to your WhatsApp</div><b>New booking request: Asha, ' + esc(b.booking) + '</b><div class="row"><span>Confirm</span><span>Other time</span></div>';
+    $('c-tix').value = b.ticket; calc();
+  }
+
+  function inr(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+  function calc() {
+    var e = +$('c-enq').value, t = +$('c-tix').value;
+    $('v-enq').textContent = e; $('v-tix').textContent = inr(t);
+    window.__loss = Math.round(e * 4.3 * 0.3 * t);
+    $('loss').textContent = inr(window.__loss);
+  }
+  $('c-enq').addEventListener('input', calc); $('c-tix').addEventListener('input', calc);
+
+  function fromHash() { var h = (location.hash || '').replace('#', '').split('-'); if (BIZ[h[0]]) { applyBiz(h[0]); return h.slice(1).join('-') || undefined; } applyBiz('salon'); }
+  var source = fromHash();
+  window.addEventListener('hashchange', function () { var s = fromHash(); if (s) source = s; });
+  $('f-biz').addEventListener('change', function () { applyBiz(this.value); });
+
+  var RULES = { '91': [10, /^[6-9]/], '971': [9, /^5/], '44': [10, /^[1-9]/], '65': [8, /^[3689]/] };
+  function showErr(t) { $('form-err').innerHTML = t ? '<div class="err">' + t + '</div>' : ''; }
+
+  $('lead-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var cc = $('f-cc').value, raw = $('f-phone').value, name = $('f-name').value.trim();
+    var digits = raw.replace(/\D/g, '').replace(/^0+/, ''), r = RULES[cc];
+    if (!name) return showErr('Please enter your name.');
+    if (digits.length !== r[0] || !r[1].test(digits)) return showErr('Enter a valid WhatsApp number (' + r[0] + ' digits after +' + cc + ').');
+    if (!$('f-ok').checked) return showErr('Please tick the box so we can message you on WhatsApp.');
+    showErr(''); $('f-go').disabled = true; $('f-go').textContent = 'Sending…';
+
+    var body = { business_type: $('f-biz').value, name: name, country_code: '+' + cc, phone: raw, consent: true,
+      consent_text: $('consent-text').textContent, ad_source: source, est_monthly_loss: window.__loss,
+      wants: ['Reply ' + P.reply], event_id: 'lead_' + Date.now(), website: $('f-web').value,
+      referrer: document.referrer || undefined };
+    var q = new URLSearchParams(location.search); if (q.get('fbclid')) body.fbclid = q.get('fbclid');
+
+    var result = 'ok';
+    if (API_BASE) {
+      try {
+        var res = await fetch(API_BASE + '/api/leads', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        if (res.status === 400) { var j = await res.json().catch(function () { return {}; }); showErr(esc((j.fields && j.fields[0] && j.fields[0].message) || 'Please check your details.')); result = 'invalid'; }
+        else if (!res.ok) result = 'fallback';
+        else if (window.fbq) window.fbq('track', 'Lead', {}, { eventID: body.event_id });
+      } catch (err) { result = 'fallback'; }
+    } else { await new Promise(function (r2) { setTimeout(r2, 700); }); }
+
+    $('f-go').disabled = false; $('f-go').textContent = 'Send me the demo';
+    if (result === 'invalid') return;
+    var first = esc(name.split(' ')[0]);
+    if (result === 'fallback') {
+      // Backend unreachable: keep the old hand-off so the lead is never lost.
+      var msg = 'Hi Turnly, I want a demo.\nBusiness: ' + BIZ[cur].word + '\nName: ' + name + '\nWhatsApp: +' + cc + digits;
+      $('form-card').innerHTML = '<div class="ok"><h3>One more step, ' + first + '</h3><p>We could not reach our system. Send us this message on WhatsApp instead.</p><div class="fallback"><textarea id="fb-msg" readonly>' + esc(msg) + '</textarea><button class="btn" type="button" id="fb-copy">Copy message</button></div></div>';
+      $('fb-copy').addEventListener('click', function () { var t = $('fb-msg'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).catch(function () { document.execCommand && document.execCommand('copy'); }); this.textContent = 'Copied'; });
+      return;
+    }
+    $('form-card').innerHTML = '<div class="ok"><div class="tick">✓</div><h3>Check your WhatsApp, ' + first + '</h3><p>Your demo is on its way to +' + cc + ' ' + esc(raw) + '. Reply YES to see a sample conversation.</p>' +
+      (API_BASE ? '' : '<div class="preview-note">Preview mode: nothing was sent or stored.</div>') + '</div>';
+  });
+
+  document.querySelectorAll('[data-price]').forEach(function () {});
+})();
+</script>
