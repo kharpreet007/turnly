@@ -36,3 +36,15 @@ describe('operator alert', () => {
     expect(h.wa.sent).toHaveLength(1);
   });
 });
+
+import { seedSelf } from '@turnly/core';
+describe('switching from the mock number to the real one', () => {
+  it('only the configured number stays active', async () => {
+    const id = await seedSelf(db, { operatorPhone: OPERATOR, phoneNumberId: 'REAL_PNID', wabaId: 'REAL_WABA' });
+    const { rows } = await db.query(`select phone_number_id, status from wa_numbers where business_id = $1 order by phone_number_id`, [id]);
+    expect(rows).toEqual([{ phone_number_id: 'REAL_PNID', status: 'active' }, { phone_number_id: 'TEST_PNID', status: 'inactive' }]);
+    await seedSelf(db, { operatorPhone: OPERATOR, phoneNumberId: 'TEST_PNID', wabaId: 'W' });
+    const again = await db.query(`select phone_number_id, status from wa_numbers where business_id = $1 order by phone_number_id`, [id]);
+    expect(again.rows).toEqual([{ phone_number_id: 'REAL_PNID', status: 'inactive' }, { phone_number_id: 'TEST_PNID', status: 'active' }]);
+  });
+});

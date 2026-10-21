@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -117,6 +117,43 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       return reply.code(r.error || !r.configured ? 500 : 200).type('text/html; charset=utf-8').send(
         `<!doctype html><meta name=viewport content="width=device-width"><title>Sheet sync</title><body style="font:16px system-ui;max-width:640px;margin:40px auto;padding:0 16px"><h2>Google Sheet sync</h2><p>${esc(msg)}</p>`);
     } });
+
+    // WhatsApp message templates: list, send to Meta for approval, refresh approval status.
+    const page = (reply: any, body: string, code = 200) => reply.code(code).type('text/html; charset=utf-8').send(
+      `<!doctype html><meta name=viewport content="width=device-width"><title>Templates</title><body style="font:16px system-ui;max-width:760px;margin:40px auto;padding:0 16px">${body}`);
+    const links = (t: string) => `<p><a href="/admin/templates/submit?token=${encodeURIComponent(t)}">1. Send templates to Meta for approval</a> &nbsp;|&nbsp; <a href="/admin/templates/sync?token=${encodeURIComponent(t)}">2. Refresh approval status</a> &nbsp;|&nbsp; <a href="/admin/templates?token=${encodeURIComponent(t)}">List</a></p>`;
+    const metaEnv = () => (process.env.WABA_ID && process.env.META_SYSTEM_USER_TOKEN ? { waba: process.env.WABA_ID, token: process.env.META_SYSTEM_USER_TOKEN } : null);
+    const tok = (req: any) => ((req.query as Record<string, string>).token ?? '');
+
+    admin.get('/admin/templates', async (req, reply) => {
+      await upsertTemplateDefs(db, PHASE0_TEMPLATES);
+      const { rows } = await db.query(`select name, category, status, meta_template_id from templates where business_id is null order by name`);
+      return page(reply, `<h2>WhatsApp templates</h2>${links(tok(req))}<table border=1 cellpadding=6><tr><th>Name<th>Type<th>Status<th>Meta id</tr>${rows.map((r: any) => `<tr><td>${esc(r.name)}<td>${esc(r.category)}<td><b>${esc(r.status)}</b><td>${esc(r.meta_template_id ?? '')}</tr>`).join('')}</table><p>Status <b>approved</b> means Meta allows us to send it.</p>`);
+    });
+
+    admin.get('/admin/templates/submit', async (req, reply) => {
+      const env = metaEnv();
+      if (!env) return page(reply, `<h2>Not connected to Meta yet</h2><p>Set WABA_ID and META_SYSTEM_USER_TOKEN in Railway Variables.</p>`, 500);
+      await upsertTemplateDefs(db, PHASE0_TEMPLATES);
+      const out: string[] = [];
+      for (const t of PHASE0_TEMPLATES) {
+        const { rows: [row] } = await db.query(`select meta_template_id from templates where business_id is null and name = $1 and language = $2`, [t.name, t.language]);
+        if (row?.meta_template_id) { out.push(`${t.name}: already sent to Meta`); continue; }
+        try {
+          const r = await submitTemplate(env.waba, env.token, t);
+          await setTemplateStatus(db, t.name, 'pending', r.id);
+          out.push(`${t.name}: sent to Meta, waiting for approval`);
+        } catch (e) { out.push(`${t.name}: Meta said: ${(e as Error).message}`); }
+      }
+      return page(reply, `<h2>Send templates to Meta</h2>${links(tok(req))}<ul>${out.map((o) => `<li>${esc(o)}`).join('')}</ul>`);
+    });
+
+    admin.get('/admin/templates/sync', async (req, reply) => {
+      const env = metaEnv();
+      if (!env) return page(reply, `<h2>Not connected to Meta yet</h2><p>Set WABA_ID and META_SYSTEM_USER_TOKEN in Railway Variables.</p>`, 500);
+      try { await syncTemplateStatuses(db, env.waba, env.token); } catch (e) { return page(reply, `<h2>Meta said</h2><p>${esc((e as Error).message)}</p>`, 500); }
+      return reply.redirect(`/admin/templates?token=${encodeURIComponent(tok(req))}`);
+    });
 
     admin.get('/admin/leads.csv', async (_req, reply) => {
       const csv = leadsToCsv(await exportLeads(db));

@@ -34,7 +34,8 @@ export type SendResult =
 export const WINDOW_MS = 24 * 60 * 60 * 1000;
 export const MAX_ATTEMPTS = 3;
 
-export interface SendDeps { db: Db; wa: WhatsAppClient; now?: () => Date }
+/** trustTemplates: mock mode only. Treats every template as approved without touching the database. */
+export interface SendDeps { db: Db; wa: WhatsAppClient; now?: () => Date; trustTemplates?: boolean }
 
 export function renderTemplate(body: string, vars: readonly string[]): string {
   return body.replace(/{{(\d+)}}/g, (_, i) => vars[Number(i) - 1] ?? '');
@@ -81,7 +82,7 @@ export async function sendMessage(deps: SendDeps, req: SendRequest): Promise<Sen
       [req.payload.name, req.payload.language, req.businessId],
     );
     if (!t) return refuse('template_unknown', { template: req.payload.name });
-    if (t.status !== 'approved') return refuse('template_not_approved', { template: req.payload.name, status: t.status });
+    if (t.status !== 'approved' && !deps.trustTemplates) return refuse('template_not_approved', { template: req.payload.name, status: t.status });
     renderedBody = renderTemplate(t.body, req.payload.variables);
   } else {
     renderedBody = req.payload.body;

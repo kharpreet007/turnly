@@ -116,3 +116,14 @@ describe('sendMessage rules', () => {
       .toMatchObject({ ok: false, reason: 'contact_not_found' });
   });
 });
+
+describe('mock mode', () => {
+  it('trustTemplates sends a pending template without changing its status', async () => {
+    await db.query(`update templates set status = 'pending'`);
+    const h = makeHarness();
+    const { rows: [c] } = await db.query(`insert into contacts (business_id, phone_e164, opt_in) values ($1, '+919822222222', true) returning id`, [businessId]);
+    const r = await sendMessage({ ...h.deps, trustTemplates: true }, { businessId, contactId: c.id, purpose: 'proactive', payload: welcome, dedupeKey: 'm1' });
+    expect(r.ok).toBe(true);
+    expect((await db.query(`select status from templates where name = 'turnly_demo_welcome'`)).rows[0].status).toBe('pending');
+  });
+});

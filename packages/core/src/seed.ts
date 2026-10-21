@@ -21,9 +21,12 @@ export async function seedSelf(db: Db, cfg: SelfConfig = {
   if (cfg.phoneNumberId) {
     await db.query(
       `insert into wa_numbers (business_id, phone_number_id, waba_id, display_number)
-       values ($1, $2, $3, $4) on conflict (phone_number_id) do nothing`,
+       values ($1, $2, $3, $4)
+       on conflict (phone_number_id) do update set waba_id = excluded.waba_id, status = 'active'`,
       [id, cfg.phoneNumberId, cfg.wabaId ?? '', cfg.displayNumber ?? null],
     );
+    // Switching from the mock number to the real one: only the configured number may send.
+    await db.query(`update wa_numbers set status = 'inactive' where business_id = $1 and phone_number_id <> $2`, [id, cfg.phoneNumberId]);
   }
   for (const op of ops) {
     // The operator opted in by configuring their own number as the alert recipient.

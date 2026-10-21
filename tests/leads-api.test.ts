@@ -226,3 +226,16 @@ describe('sheet sync page', () => {
     expect(res.body).toContain('Google Sheet is not set up');
   });
 });
+
+describe('template admin pages', () => {
+  it('list templates as pending and explain when Meta is not connected', async () => {
+    const app = await makeHarness().build();
+    const h = { authorization: 'Bearer admin-secret' };
+    const list = await app.inject({ method: 'GET', url: '/admin/templates', headers: h });
+    expect(list.statusCode).toBe(200);
+    expect(list.body).toContain('turnly_demo_welcome');
+    const sub = await app.inject({ method: 'GET', url: '/admin/templates/submit', headers: h });
+    expect(sub.statusCode).toBe(500);
+    expect(sub.body).toContain('Not connected to Meta yet');
+  });
+});
