@@ -22,7 +22,7 @@ export const approveAll = async () => {
 };
 
 /** Queue that runs jobs inline, like the worker would, so tests see end-to-end effects. */
-export function makeHarness() {
+export function makeHarness(over: Record<string, unknown> = {}) {
   const wa = createFakeClient();
   const deps: JobDeps = { db, wa, env: {} };
   const jobs: { name: string; data: any }[] = [];
@@ -34,7 +34,7 @@ export function makeHarness() {
       if (name === 'wa_webhook') await handleWebhookJob(deps, data);
     },
   };
-  const config = { databaseUrl: '', port: 0, appSecret: SECRET, verifyToken: 'verify-me', adminToken: 'admin-secret', allowedOrigins: [] };
+  const config = { databaseUrl: '', port: 0, appSecret: SECRET, verifyToken: 'verify-me', adminToken: 'admin-secret', allowedOrigins: [], ...over } as Parameters<typeof buildApp>[0]['config'];
   return { wa, deps, jobs, queue, config, build: () => buildApp({ db, queue, config }) };
 }
 

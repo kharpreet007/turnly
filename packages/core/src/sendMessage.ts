@@ -125,7 +125,7 @@ export async function sendMessage(deps: SendDeps, req: SendRequest): Promise<Sen
   }
 
   try {
-    const { waMessageId } = await wa.send(num.phone_number_id, c.phone_e164, req.payload);
+    const { waMessageId } = await wa.send(num.phone_number_id, c.phone_e164, req.payload, { renderedBody: renderedBody ?? undefined });
     await db.query(`update messages set status = 'sent', wa_message_id = $2, attempts = $3, error = null where id = $1`, [messageId, waMessageId, attempts + 1]);
     await db.query(
       `insert into audit_log (business_id, actor, action, detail) values ($1, $2, 'send', $3)`,

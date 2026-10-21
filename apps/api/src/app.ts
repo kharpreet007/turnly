@@ -1,12 +1,13 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import formbody from '@fastify/formbody';
 import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -62,6 +63,27 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       try { payload = JSON.parse(raw.toString('utf8')); } catch { return reply.code(400).send({ error: 'bad json' }); }
       await queue.send('wa_webhook', payload as object);
       return reply.code(200).send({ ok: true });
+    });
+  });
+
+  // --- Twilio (alternative to Meta): incoming messages and delivery statuses ---
+  await app.register(async (tw) => {
+    await tw.register(formbody);
+    const check = (req: any, path: string) => {
+      if (!config.twilio) return false;
+      const base = config.publicBaseUrl ?? `${req.protocol}://${req.hostname}`;
+      return verifyTwilioSignature(config.twilio.authToken, base + path, (req.body ?? {}) as Record<string, string>, req.headers['x-twilio-signature'] as string | undefined);
+    };
+    tw.post('/twilio/webhook', async (req, reply) => {
+      if (!check(req, '/twilio/webhook')) return reply.code(403).send('forbidden');
+      await queue.send('wa_webhook', twilioInboundToMeta(req.body as Record<string, string>, config.twilio!.numberId));
+      return reply.type('text/xml').send('<Response></Response>');
+    });
+    tw.post('/twilio/status', async (req, reply) => {
+      if (!check(req, '/twilio/status')) return reply.code(403).send('forbidden');
+      const payload = twilioStatusToMeta(req.body as Record<string, string>, config.twilio!.numberId);
+      if (payload) await queue.send('wa_webhook', payload);
+      return reply.code(204).send();
     });
   });
 

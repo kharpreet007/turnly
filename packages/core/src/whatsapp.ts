@@ -9,8 +9,11 @@ export class WaSendError extends Error {
   constructor(message: string, public transient: boolean, public code?: number) { super(message); }
 }
 
+/** renderedBody: the template text with variables filled in, for providers that send plain text. */
+export interface SendContext { renderedBody?: string }
+
 export interface WhatsAppClient {
-  send(phoneNumberId: string, toE164: string, payload: OutboundPayload): Promise<{ waMessageId: string }>;
+  send(phoneNumberId: string, toE164: string, payload: OutboundPayload, ctx?: SendContext): Promise<{ waMessageId: string }>;
 }
 
 export interface WaConfig { token: string; graphVersion?: string }

@@ -1,5 +1,5 @@
 import {
-  createCloudClient, createDb, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
+  createCloudClient, createDb, createTwilioClient, twilioConfig, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
   handleSheetLead, handleWebhookJob, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
@@ -9,17 +9,25 @@ await waitForDb(db);
 await migrate(db);
 await seedSelf(db);
 
-// WA_MODE=mock logs instead of calling Meta (local dev without credentials).
-const mock = process.env.WA_MODE === 'mock' || !process.env.META_SYSTEM_USER_TOKEN;
-const wa: WhatsAppClient = mock
-  ? (() => {
-      const f = createFakeClient();
-      return { send: async (...a: Parameters<WhatsAppClient['send']>) => { console.log('[mock wa] send', a[1], JSON.stringify(a[2])); return f.send(...a); } };
-    })()
-  : createCloudClient({ token: process.env.META_SYSTEM_USER_TOKEN! });
-if (mock) console.warn('WhatsApp client is in MOCK mode: nothing is sent to Meta.');
+// Provider: Twilio when its settings exist, Meta when a Meta token exists, otherwise mock (logs only).
+const twilio = twilioConfig(process.env);
+const mock = process.env.WA_MODE === 'mock' || (!twilio && !process.env.META_SYSTEM_USER_TOKEN);
+let wa: WhatsAppClient;
+if (mock) {
+  const f = createFakeClient();
+  wa = { send: async (...a: Parameters<WhatsAppClient['send']>) => { console.log('[mock wa] send', a[1], JSON.stringify(a[2])); return f.send(a[0], a[1], a[2]); } };
+  console.warn('WhatsApp client is in MOCK mode: nothing is sent to anyone.');
+} else if (twilio) {
+  wa = createTwilioClient(twilio);
+  console.log('WhatsApp provider: Twilio');
+} else {
+  wa = createCloudClient({ token: process.env.META_SYSTEM_USER_TOKEN! });
+  console.log('WhatsApp provider: Meta Cloud API');
+}
+// TRUST_TEMPLATES=1: skip our approval check. For the Twilio sandbox / testing only.
+const trustTemplates = mock || process.env.TRUST_TEMPLATES === '1';
 
-const deps: JobDeps = { db, wa, trustTemplates: mock };
+const deps: JobDeps = { db, wa, trustTemplates };
 const { boss } = await startBoss(url, { supervise: true });
 
 type J<T> = { id: string; data: T }[];

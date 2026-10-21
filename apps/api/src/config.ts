@@ -5,6 +5,9 @@ export interface Config {
   verifyToken: string;
   adminToken: string;
   allowedOrigins: string[];
+  publicBaseUrl?: string;
+  /** Set when Twilio is the WhatsApp provider; used to check Twilio's webhook signature. */
+  twilio?: { authToken: string; numberId: string };
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -19,6 +22,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     appSecret: need('META_APP_SECRET'),
     verifyToken: need('META_VERIFY_TOKEN'),
     adminToken: need('ADMIN_TOKEN'),
+    publicBaseUrl: env.PUBLIC_BASE_URL?.replace(/\/$/, ''),
+    twilio: env.TWILIO_AUTH_TOKEN ? { authToken: env.TWILIO_AUTH_TOKEN, numberId: env.PHONE_NUMBER_ID ?? 'TWILIO' } : undefined,
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   };
 }
