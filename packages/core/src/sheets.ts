@@ -8,7 +8,12 @@ export function sheetConfig(env: Record<string, string | undefined>): SheetConfi
   const sheetId = env.GOOGLE_SHEET_ID?.trim();
   if (!raw || !sheetId) return null;
   const text = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
-  const sa = JSON.parse(text) as { client_email?: string; private_key?: string };
+  let sa: { client_email?: string; private_key?: string };
+  try {
+    sa = JSON.parse(text);
+  } catch {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. Paste the whole downloaded file, from the first { to the last }.');
+  }
   if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing client_email or private_key');
   return { clientEmail: sa.client_email, privateKey: sa.private_key, sheetId, tab: env.GOOGLE_SHEET_TAB?.trim() || 'Leads' };
 }

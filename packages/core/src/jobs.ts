@@ -90,7 +90,9 @@ export async function handleCapi(deps: JobDeps, data: { leadId: string }) {
 }
 
 /** Appends a new lead to the Google Sheet, once. Does nothing when the Google settings are not set. */
-export async function handleSheetLead(deps: JobDeps, data: { leadId: string }) {
+export type SheetDeps = Pick<JobDeps, 'db' | 'env' | 'fetchImpl'>;
+
+export async function handleSheetLead(deps: SheetDeps, data: { leadId: string }) {
   const cfg = sheetConfig(deps.env ?? process.env);
   if (!cfg) return { skipped: true, reason: 'not_configured' };
   const { rows: [l] } = await deps.db.query(
@@ -106,4 +108,26 @@ export async function handleSheetLead(deps: JobDeps, data: { leadId: string }) {
   ], deps.fetchImpl ?? fetch);
   await deps.db.query('update leads set sheet_synced_at = now() where id = $1', [l.id]);
   return { skipped: false };
+}
+
+export interface SheetSyncResult { configured: boolean; total: number; synced: number; error?: string }
+
+/** Adds every lead not yet in the sheet, oldest first. Stops at the first error and reports it. */
+export async function syncPendingLeadsToSheet(deps: SheetDeps): Promise<SheetSyncResult> {
+  try {
+    if (!sheetConfig(deps.env ?? process.env)) return { configured: false, total: 0, synced: 0 };
+  } catch (e) {
+    return { configured: true, total: 0, synced: 0, error: (e as Error).message };
+  }
+  const { rows } = await deps.db.query<{ id: string }>('select id from leads where sheet_synced_at is null order by created_at asc');
+  let synced = 0;
+  for (const r of rows) {
+    try {
+      await handleSheetLead(deps, { leadId: r.id });
+      synced++;
+    } catch (e) {
+      return { configured: true, total: rows.length, synced, error: (e as Error).message };
+    }
+  }
+  return { configured: true, total: rows.length, synced };
 }

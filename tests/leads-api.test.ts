@@ -216,3 +216,13 @@ describe('lead export', () => {
     expect(res.body).toContain(`"'=HYPERLINK(""http://evil"",""x"")"`);
   });
 });
+
+describe('sheet sync page', () => {
+  it('needs the token and explains when Google is not set up', async () => {
+    const app = await makeHarness().build();
+    expect((await app.inject({ method: 'GET', url: '/admin/sheet/sync' })).statusCode).toBe(401);
+    const res = await app.inject({ method: 'GET', url: '/admin/sheet/sync', headers: { authorization: 'Bearer admin-secret' } });
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toContain('Google Sheet is not set up');
+  });
+});

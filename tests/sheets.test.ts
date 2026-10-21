@@ -85,3 +85,33 @@ describe('Google Sheet sync', () => {
     expect(cfg?.tab).toBe('Leads');
   });
 });
+
+import { syncPendingLeadsToSheet } from '@turnly/core';
+
+describe('sync pending leads', () => {
+  const mk = (phone: string, name: string) => createLead(db, leadInput.parse(validLead({ phone, name })));
+
+  it('adds every unsynced lead oldest first, then has nothing left to do', async () => {
+    const h = makeHarness();
+    const g = fakeGoogle({ headerExists: true });
+    await mk('9876543210', 'First');
+    await mk('9876543211', 'Second');
+    const deps = { db: h.deps.db, env, fetchImpl: g.impl };
+    expect(await syncPendingLeadsToSheet(deps)).toEqual({ configured: true, total: 2, synced: 2 });
+    const rows = g.calls.filter((c) => c.url.includes(':append')).map((c) => c.body.values[0][1]);
+    expect(rows).toEqual(['First', 'Second']);
+    expect(await syncPendingLeadsToSheet(deps)).toEqual({ configured: true, total: 0, synced: 0 });
+  });
+
+  it('reports not configured, a bad key and Google errors in words', async () => {
+    const h = makeHarness();
+    await mk('9876543210', 'First');
+    expect(await syncPendingLeadsToSheet({ db: h.deps.db, env: {} })).toMatchObject({ configured: false });
+    const bad = await syncPendingLeadsToSheet({ db: h.deps.db, env: { ...env, GOOGLE_SERVICE_ACCOUNT_JSON: '{"client_email": "a", "private_key": ' } });
+    expect(bad.error).toMatch(/not valid JSON/);
+    const g = fakeGoogle({ headerExists: true, appendStatus: 403 });
+    const denied = await syncPendingLeadsToSheet({ db: h.deps.db, env, fetchImpl: g.impl });
+    expect(denied).toMatchObject({ configured: true, total: 1, synced: 0 });
+    expect(denied.error).toMatch(/403/);
+  });
+});
