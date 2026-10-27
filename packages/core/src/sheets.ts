@@ -81,3 +81,16 @@ export async function sheetInfo(cfg: SheetConfig, f: typeof fetch = fetch): Prom
   if (!res.ok) throw new Error(`Google Sheets lookup failed (${res.status}): ${j.error?.message ?? ''}`);
   return { title: j.properties?.title ?? '', tabs: (j.sheets ?? []).map((x) => x.properties?.title ?? '') };
 }
+
+/** Empties the data rows (row 2 down) of the tab, keeping the header row. */
+export async function clearSheetRows(cfg: SheetConfig, f: typeof fetch = fetch): Promise<void> {
+  const token = await accessToken(cfg, f);
+  const tab = `'${cfg.tab.replace(/'/g, "''")}'`;
+  const res = await f(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}/values/${encodeURIComponent(`${tab}!A2:M`)}:clear`, {
+    method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}',
+  });
+  if (!res.ok) {
+    const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(`Google Sheets clear failed (${res.status}): ${j.error?.message ?? ''}`);
+  }
+}

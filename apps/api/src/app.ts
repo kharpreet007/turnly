@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, sheetConfig, sheetInfo, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -247,6 +247,28 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       }
     });
 
+    // Fresh start: delete every lead (and the Google Sheet rows). Needs the word RESET typed in.
+    admin.get('/admin/reset-leads', async (req, reply) => {
+      const q = req.query as Record<string, string>;
+      const { rows: [n] } = await db.query(`select (select count(*)::int from leads) as leads`);
+      return deletePage(reply, `<h2>Reset all test data?</h2>
+<p>This permanently deletes <b>all ${n.leads} lead(s)</b>, their messages and contacts, and clears the data rows in your Google Sheet (the header row stays). Your own alert number is kept. It cannot be undone, and it also deletes real customers' leads if there are any.</p>
+<form method="post" action="/admin/reset-leads?token=${encodeURIComponent(q.token ?? '')}"><p>Type <b>RESET</b> to confirm:<br><input name="confirm" autocomplete="off" style="font:16px system-ui;padding:8px"></p><button style="font:600 16px system-ui;padding:10px 18px">Delete everything</button></form>`);
+    });
+
+    admin.post('/admin/reset-leads', async (req, reply) => {
+      if ((((req.body ?? {}) as Record<string, string>).confirm ?? '').trim() !== 'RESET') {
+        return deletePage(reply, `<h2>Not deleted</h2><p>You need to type RESET exactly. Nothing was changed.</p>`, 400);
+      }
+      const r = await resetAllLeads(db, await selfId());
+      let sheet = 'Google Sheet is not set up, so no sheet rows were cleared.';
+      try {
+        const cfg = sheetConfig(process.env);
+        if (cfg) { await clearSheetRows(cfg); sheet = 'The Google Sheet rows were cleared.'; }
+      } catch (e) { sheet = `The sheet could not be cleared (${(e as Error).message}). Delete its rows by hand.`; }
+      return deletePage(reply, `<h2>Fresh start</h2><p>Deleted ${r.leads} lead(s), ${r.contacts} contact(s) and ${r.messages} message(s). ${esc(sheet)}</p><p>You can use any number again.</p>`);
+    });
+
     admin.get('/admin/leads.csv', async (_req, reply) => {
       const csv = leadsToCsv(await exportLeads(db));
       return reply
@@ -261,7 +283,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       if (q.format !== 'html') return rows;
       const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td><td><a href="/admin/delete-contact?phone=${encodeURIComponent(r.phone_e164)}&token=${encodeURIComponent(q.token ?? '')}">Delete</a></td></tr>`).join('');
       return reply.type('text/html').send(
-        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome<th></tr>${tr}</table>`);
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a> &nbsp;|&nbsp; <a href="/admin/reset-leads?token=${encodeURIComponent(q.token ?? '')}">Reset test data</a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome<th></tr>${tr}</table>`);
     });
 
     admin.patch('/admin/leads/:id', async (req, reply) => {

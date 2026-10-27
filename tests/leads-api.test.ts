@@ -293,3 +293,31 @@ describe('status page: Google Sheet line', () => {
     expect(res.body).toContain('not set up');
   });
 });
+
+describe('reset test data', () => {
+  const auth = { authorization: 'Bearer admin-secret', 'content-type': 'application/x-www-form-urlencoded' };
+
+  it('needs the word RESET, then removes every lead but keeps the operator contact', async () => {
+    const app = await makeHarness().build();
+    await post(app, validLead());
+    await post(app, validLead({ phone: '9876543211', name: 'Second' }));
+    // The operator number may itself have submitted a lead: its lead goes, its contact stays.
+    await post(app, validLead({ phone: '9000000001', name: 'Operator test' }));
+
+    const no = await app.inject({ method: 'POST', url: '/admin/reset-leads', headers: auth, payload: 'confirm=reset-please' });
+    expect(no.statusCode).toBe(400);
+    expect((await db.query('select 1 from leads')).rowCount).toBe(3);
+
+    const yes = await app.inject({ method: 'POST', url: '/admin/reset-leads', headers: auth, payload: 'confirm=RESET' });
+    expect(yes.body).toContain('Fresh start');
+    expect((await db.query('select 1 from leads')).rowCount).toBe(0);
+    expect((await db.query(`select 1 from contacts where phone_e164 in ('+919876543210', '+919876543211')`)).rowCount).toBe(0);
+    expect((await db.query(`select 1 from contacts where phone_e164 = '+919000000001'`)).rowCount).toBe(1);
+    expect((await post(app, validLead())).json()).toEqual({ ok: true, duplicate: false });
+  });
+
+  it('needs the token', async () => {
+    const app = await makeHarness().build();
+    expect((await app.inject({ method: 'GET', url: '/admin/reset-leads' })).statusCode).toBe(401);
+  });
+});
