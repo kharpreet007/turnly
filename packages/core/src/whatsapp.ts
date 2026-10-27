@@ -75,13 +75,14 @@ export function createFakeClient() {
   const sent: { phoneNumberId: string; to: string; payload: OutboundPayload }[] = [];
   let failNext: WaSendError | null = null;
   let n = 0;
+  const run = Date.now().toString(36); // a restart must not reuse earlier fake ids (they are unique in the database)
   return {
     sent,
     failNextWith(e: WaSendError) { failNext = e; },
     async send(phoneNumberId: string, to: string, payload: OutboundPayload) {
       if (failNext) { const e = failNext; failNext = null; throw e; }
       sent.push({ phoneNumberId, to, payload });
-      return { waMessageId: `wamid.fake.${++n}` };
+      return { waMessageId: `wamid.fake.${run}.${++n}` };
     },
   } satisfies WhatsAppClient & { sent: typeof sent; failNextWith(e: WaSendError): void };
 }
