@@ -115,3 +115,19 @@ describe('sync pending leads', () => {
     expect(denied.error).toMatch(/403/);
   });
 });
+
+describe('sync page: send everything again', () => {
+  it('?all=1 clears the sent marks so every lead is written again', async () => {
+    const { buildApp } = await import('../apps/api/src/app.ts');
+    const h = makeHarness();
+    await createLead(db, leadInput.parse(validLead()));
+    await db.query('update leads set sheet_synced_at = now()');
+    const app = await buildApp({ db, queue: h.queue, config: h.config });
+    const auth = { authorization: 'Bearer admin-secret' };
+    // Without ?all=1 nothing is pending, so the (unconfigured) page just reports setup state; the marks stay.
+    await app.inject({ method: 'GET', url: '/admin/sheet/sync', headers: auth });
+    expect((await db.query('select sheet_synced_at from leads')).rows[0].sheet_synced_at).not.toBeNull();
+    await app.inject({ method: 'GET', url: '/admin/sheet/sync?all=1', headers: auth });
+    expect((await db.query('select sheet_synced_at from leads')).rows[0].sheet_synced_at).toBeNull();
+  });
+});

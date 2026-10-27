@@ -130,7 +130,9 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
     });
 
     // Adds every lead missing from the Google Sheet and says plainly what happened.
-    admin.route({ method: ['GET', 'POST'], url: '/admin/sheet/sync', handler: async (_req, reply) => {
+    admin.route({ method: ['GET', 'POST'], url: '/admin/sheet/sync', handler: async (req, reply) => {
+      // ?all=1 forgets what was sent before, for a sheet that was cleared. Rows already in the sheet will repeat.
+      if ((req.query as Record<string, string>).all === '1') await db.query('update leads set sheet_synced_at = null');
       const r = await syncPendingLeadsToSheet({ db, env: process.env });
       let msg: string;
       if (!r.configured) msg = 'Google Sheet is not set up. In Railway Variables, add GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_SHEET_ID (and GOOGLE_SHEET_TAB = Leads).';
