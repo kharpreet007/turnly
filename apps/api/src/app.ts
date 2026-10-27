@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, emailConfig, maskEmail, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -109,6 +109,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
         await queue.send('alert_operator', { leadId: r.leadId });
         await queue.send('capi_lead', { leadId: r.leadId });
         await queue.send('sheet_lead', { leadId: r.leadId });
+        await queue.send('email_lead', { leadId: r.leadId });
       }
       return { ok: true, duplicate: r.duplicate };
     } catch (e) {
@@ -214,7 +215,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       return reply.type('text/html; charset=utf-8').send(
         `<!doctype html><meta name=viewport content="width=device-width"><title>Status</title><body style="font:15px system-ui;max-width:900px;margin:30px auto;padding:0 16px">
 <h2>Sending status</h2>
-<p><b>Running version:</b> ${esc((process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown').slice(0, 7))} ${esc((process.env.RAILWAY_GIT_COMMIT_MESSAGE ?? '').split('\n')[0].slice(0, 90))}<br><b>Fallback template (TWILIO_FALLBACK_CONTENT_SID):</b> ${process.env.TWILIO_FALLBACK_CONTENT_SID ? 'set, ends …' + esc(process.env.TWILIO_FALLBACK_CONTENT_SID.trim().slice(-4)) : '<b>NOT SET</b>'}</p><p><b>Google Sheet:</b> ${esc(sheet)}</p><p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
+<p><b>Running version:</b> ${esc((process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown').slice(0, 7))} ${esc((process.env.RAILWAY_GIT_COMMIT_MESSAGE ?? '').split('\n')[0].slice(0, 90))}<br><b>Fallback template (TWILIO_FALLBACK_CONTENT_SID):</b> ${process.env.TWILIO_FALLBACK_CONTENT_SID ? 'set, ends …' + esc(process.env.TWILIO_FALLBACK_CONTENT_SID.trim().slice(-4)) : '<b>NOT SET</b>'}</p><p><b>Email alerts:</b> ${esc(emailConfig(process.env) ? 'on, to ' + emailConfig(process.env)!.to.map(maskEmail).join(', ') : 'NOT SET (add RESEND_API_KEY and ALERT_EMAIL in Railway)')}</p><p><b>Google Sheet:</b> ${esc(sheet)}</p><p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
 <h3>Last messages we tried to send</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>To<th>What<th>Status<th>Error</tr>${rowsHtml || '<tr><td colspan=5>None yet'}</table>
 <h3>Messages we refused or that failed</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>Kind<th>Reason<th>For</tr>${auditHtml || '<tr><td colspan=4>None'}</table>
 <p style="color:#666">Reasons: outside_window = the person has not messaged the number in the last 24 hours; template_not_approved = template not approved yet; no_consent / opted_out = we must not message them; no_number = no WhatsApp number set up.</p>`);

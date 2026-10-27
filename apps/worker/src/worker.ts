@@ -1,6 +1,6 @@
 import {
   createCloudClient, createDb, createTwilioClient, twilioConfig, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
-  handleSheetLead, handleWebhookJob, syncPendingLeadsToSheet, syncLeadAnswersToSheet, alertFlowFinished, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
+  handleSheetLead, handleWebhookJob, emailNewLeads, syncPendingLeadsToSheet, syncLeadAnswersToSheet, alertFlowFinished, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
 const url = process.env.DATABASE_URL!;
@@ -37,6 +37,7 @@ await boss.work('send_welcome', each((d: { leadId: string }) => handleSendWelcom
 await boss.work('alert_operator', each((d: { leadId: string }) => handleAlertOperator(deps, d)));
 await boss.work('wa_webhook', each((d: unknown) => handleWebhookJob(deps, d)));
 await boss.work('sheet_lead', each((d: { leadId: string }) => handleSheetLead(deps, d)));
+await boss.work('email_lead', each(() => emailNewLeads({ db, env: process.env }).then((r) => { if (r.error) throw new Error(r.error); })));
 await boss.work('capi_lead', each((d: { leadId: string }) => handleCapi(deps, d)));
 // Safety net for the Google Sheet: every minute, add any lead that is still missing. Errors are kept for the status page.
 const sheetTick = async () => {
@@ -52,6 +53,8 @@ const sheetTick = async () => {
       console.log(`[sheet] added ${r.synced} lead(s)`);
       await db.query(`insert into events (name, props) values ('sheet_sync_ok', $1)`, [JSON.stringify({ added: r.synced })]);
     }
+    const em = await emailNewLeads({ db, env: process.env });
+    if (em.error) console.warn('[email] failed:', em.error);
     const a = await syncLeadAnswersToSheet({ db, env: process.env });
     if (a.error) console.warn('[sheet] answers sync failed:', a.error);
     else if (a.updated > 0) console.log(`[sheet] updated chat answers for ${a.updated} lead(s)`);

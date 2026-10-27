@@ -1,4 +1,5 @@
 import { sendMessage, WINDOW_MS, type SendDeps, type SendResult } from './sendMessage.ts';
+import { emailConfig, sendEmail } from './email.ts';
 
 /**
  * Message every owner/operator number. Plain text when they messaged us in the last 24h
@@ -45,6 +46,12 @@ export async function alertFlowFinished(deps: SendDeps): Promise<number> {
       dedupeBase: `flowdone:${l.id}`, text, templateName: 'turnly_operator_lead_update',
       templateVars: [who, wants, a.business ?? 'not given', a.best_time ?? 'not given'],
     });
+    // The same news by email, so it reaches you even when WhatsApp cannot.
+    const mail = emailConfig(process.env);
+    if (mail) {
+      try { await sendEmail(mail, { subject: l.flow_status === 'needs_human' ? `Lead needs a call: ${l.name}` : `Lead finished the chat: ${l.name}`, text }); }
+      catch (e) { console.warn('[flow] email failed:', (e as Error).message); }
+    }
     // A failed send is shown on the status page; do not retry forever.
     await deps.db.query('update leads set flow_alerted_at = now() where id = $1', [l.id]);
     if (results.some((r) => r.ok)) sent++;

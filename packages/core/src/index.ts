@@ -18,3 +18,4 @@ export * from './twilio.ts';
 export * from './deleteContact.ts';
 export * from './leadFlow.ts';
 export * from './operatorAlerts.ts';
+export * from './email.ts';
