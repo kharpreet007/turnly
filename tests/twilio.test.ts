@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createTwilioClient, sendMessage, twilioConfig, twilioSignature, WaSendError } from '@turnly/core';
 import { approveAll, db, makeHarness, OPERATOR, resetDb } from './helpers.ts';
 
-const cfg = { accountSid: 'ACxxx', authToken: 'tok', from: 'whatsapp:+14155238886', contentSids: {} as Record<string, string>, statusCallback: 'https://x.test/twilio/status' };
+const cfg = { accountSid: 'ACxxx', authToken: 'tok', from: 'whatsapp:+14155238886', contentSids: {} as Record<string, string>, statusCallback: 'https://x.test/twilio/status', fallbackVariableNames: ['1', '2'] };
 
 function fakeTwilio(status = 201, json: object = { sid: 'SM123' }) {
   const calls: { url: string; init: any }[] = [];
@@ -146,5 +146,22 @@ describe('Twilio fallback template', () => {
   it('reads the fallback from env', () => {
     const c = twilioConfig({ TWILIO_ACCOUNT_SID: 'AC1', TWILIO_AUTH_TOKEN: 't', TWILIO_WHATSAPP_FROM: '+1415', TWILIO_FALLBACK_CONTENT_SID: ' HXabc ' });
     expect(c?.fallbackContentSid).toBe('HXabc');
+  });
+});
+
+describe('Twilio fallback variable names', () => {
+  it('uses the names from settings: text in the first, "Turnly" in the rest', async () => {
+    const calls: any[] = [];
+    const impl = (async (_u: string, init: any) => {
+      calls.push(Object.fromEntries(init.body as URLSearchParams));
+      return calls.length === 1 ? new Response(JSON.stringify({ code: 21654 }), { status: 400 }) : new Response(JSON.stringify({ sid: 'SM1' }), { status: 201 });
+    }) as unknown as typeof fetch;
+    const c = twilioConfig({ TWILIO_ACCOUNT_SID: 'AC1', TWILIO_AUTH_TOKEN: 't', TWILIO_WHATSAPP_FROM: '+1415', TWILIO_FALLBACK_CONTENT_SID: 'HXf', TWILIO_FALLBACK_VARIABLES: 'date, time' })!;
+    expect(c.fallbackVariableNames).toEqual(['date', 'time']);
+    await createTwilioClient(c, impl).send('n', '+91', { kind: 'text', body: 'New lead' });
+    expect(JSON.parse(calls[1].ContentVariables)).toEqual({ date: 'New lead', time: 'Turnly' });
+  });
+  it('defaults to 1 and 2', () => {
+    expect(twilioConfig({ TWILIO_ACCOUNT_SID: 'AC1', TWILIO_AUTH_TOKEN: 't', TWILIO_WHATSAPP_FROM: '+1415' })?.fallbackVariableNames).toEqual(['1', '2']);
   });
 });

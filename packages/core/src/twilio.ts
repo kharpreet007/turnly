@@ -13,6 +13,8 @@ export interface TwilioConfig {
    * template). Used when Twilio refuses plain text with 21654 "ContentSid Required". The message text goes in {{1}}.
    */
   fallbackContentSid?: string;
+  /** Variable names of the fallback template, in order. The message text fills the first; the rest get "Turnly". Default: 1,2 */
+  fallbackVariableNames: string[];
 }
 
 export function twilioConfig(env: Record<string, string | undefined>): TwilioConfig | null {
@@ -28,6 +30,8 @@ export function twilioConfig(env: Record<string, string | undefined>): TwilioCon
   return {
     accountSid, authToken, contentSids,
     fallbackContentSid: env.TWILIO_FALLBACK_CONTENT_SID?.trim() || undefined,
+    fallbackVariableNames: (env.TWILIO_FALLBACK_VARIABLES?.split(',').map((x) => x.trim()).filter(Boolean) ?? []).length
+      ? env.TWILIO_FALLBACK_VARIABLES!.split(',').map((x) => x.trim()).filter(Boolean) : ['1', '2'],
     from: from.startsWith('whatsapp:') ? from : `whatsapp:${from}`,
     statusCallback: base ? `${base}/twilio/status` : undefined,
   };
@@ -73,7 +77,8 @@ export function createTwilioClient(cfg: TwilioConfig, f: typeof fetch = fetch): 
         const retry = new URLSearchParams({ To: body.get('To')!, From: cfg.from });
         if (cfg.statusCallback) retry.set('StatusCallback', cfg.statusCallback);
         retry.set('ContentSid', cfg.fallbackContentSid);
-        retry.set('ContentVariables', JSON.stringify({ '1': text.replace(/\s+/g, ' ').slice(0, 900), '2': 'Turnly' }));
+        const clean = text.replace(/\s+/g, ' ').slice(0, 900);
+        retry.set('ContentVariables', JSON.stringify(Object.fromEntries(cfg.fallbackVariableNames.map((k, i) => [k, i === 0 ? clean : 'Turnly']))));
         ({ res, json } = await post(retry));
       }
       if (!res.ok || !json.sid) {

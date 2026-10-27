@@ -25,3 +25,6 @@ business-started messages outside 24h of the person's last message need a Twilio
 The sandbox may refuse plain text. Set TWILIO_FALLBACK_CONTENT_SID to the sandbox's pre-approved template:
 Console > Messaging > Try it out > Send a WhatsApp message > "API" tab > copy the value after ContentSid (starts with HX).
 The alert text is then sent as the template's first variable.
+
+If Twilio shows its own sample text instead of ours, the template's variable names are not 1 and 2. Set
+TWILIO_FALLBACK_VARIABLES to the names shown in the API tab's ContentVariables line, in order (e.g. date,time).
