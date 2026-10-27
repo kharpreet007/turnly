@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -177,6 +177,29 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       return reply.redirect(`/admin/templates?token=${encodeURIComponent(tok(req))}`);
     });
 
+    // What is sending, to whom, and why a message did not go out.
+    admin.get('/admin/status', async (_req, reply) => {
+      const mask = (p: string) => p.length > 6 ? `${p.slice(0, 3)}•••••${p.slice(-4)}` : p;
+      const provider = process.env.WA_MODE === 'mock' ? 'MOCK (nothing is sent)'
+        : twilioConfig(process.env) ? 'Twilio' : process.env.META_SYSTEM_USER_TOKEN ? 'Meta Cloud API' : 'MOCK (nothing is sent)';
+      const { rows: [biz] } = await db.query(`select owner_phone_e164s from businesses where is_self`);
+      const { rows: msgs } = await db.query(
+        `select m.created_at, c.phone_e164, m.type, m.template_name, m.status, m.error, m.attempts
+           from messages m join contacts c on c.id = m.contact_id where m.direction = 'out' order by m.created_at desc limit 20`);
+      const { rows: audits } = await db.query(
+        `select created_at, action, detail from audit_log where action in ('send_refused', 'send_failed') order by id desc limit 20`);
+      const t = (d: Date) => esc(ist(d));
+      const rowsHtml = msgs.map((m: any) => `<tr><td>${t(m.created_at)}<td>${esc(mask(m.phone_e164))}<td>${esc(m.template_name ?? m.type)}<td><b>${esc(m.status)}</b><td>${esc(m.error ?? '')}</tr>`).join('');
+      const auditHtml = audits.map((a: any) => `<tr><td>${t(a.created_at)}<td>${esc(a.action)}<td>${esc(a.detail?.reason ?? a.detail?.error ?? '')}<td>${esc(a.detail?.purpose ?? '')}</tr>`).join('');
+      return reply.type('text/html; charset=utf-8').send(
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Status</title><body style="font:15px system-ui;max-width:900px;margin:30px auto;padding:0 16px">
+<h2>Sending status</h2>
+<p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
+<h3>Last messages we tried to send</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>To<th>What<th>Status<th>Error</tr>${rowsHtml || '<tr><td colspan=5>None yet'}</table>
+<h3>Messages we refused or that failed</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>Kind<th>Reason<th>For</tr>${auditHtml || '<tr><td colspan=4>None'}</table>
+<p style="color:#666">Reasons: outside_window = the person has not messaged the number in the last 24 hours; template_not_approved = template not approved yet; no_consent / opted_out = we must not message them; no_number = no WhatsApp number set up.</p>`);
+    });
+
     admin.get('/admin/leads.csv', async (_req, reply) => {
       const csv = leadsToCsv(await exportLeads(db));
       return reply
@@ -191,7 +214,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       if (q.format !== 'html') return rows;
       const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td></tr>`).join('');
       return reply.type('text/html').send(
-        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome</tr>${tr}</table>`);
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome</tr>${tr}</table>`);
     });
 
     admin.patch('/admin/leads/:id', async (req, reply) => {

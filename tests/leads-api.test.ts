@@ -239,3 +239,18 @@ describe('template admin pages', () => {
     expect(sub.body).toContain('Not connected to Meta yet');
   });
 });
+
+describe('sending status page', () => {
+  it('needs the token and shows provider, alert number and refusals', async () => {
+    const h = makeHarness();
+    const app = await h.build();
+    expect((await app.inject({ method: 'GET', url: '/admin/status' })).statusCode).toBe(401);
+    await post(app, validLead());
+    const res = await app.inject({ method: 'GET', url: '/admin/status', headers: { authorization: 'Bearer admin-secret' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('Provider:');
+    expect(res.body).toContain('+91•••••0001');
+    expect(res.body).toContain('turnly_operator_new_lead');
+    expect(res.body).not.toContain('+919000000001');
+  });
+});
