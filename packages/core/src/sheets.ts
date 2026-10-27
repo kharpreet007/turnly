@@ -46,7 +46,7 @@ export const SHEET_HEADERS = ['When (IST)', 'Name', 'WhatsApp', 'Business type',
   'Est. monthly loss (INR)', 'Opt-in', 'Consent text', 'UTM', 'Lead ID', 'Status', 'Notes'];
 
 /** Appends one row (writing the header first if the tab is empty). Values go in as plain text (RAW). */
-export async function appendSheetRow(cfg: SheetConfig, row: string[], f: typeof fetch = fetch) {
+export async function appendSheetRow(cfg: SheetConfig, row: string[], f: typeof fetch = fetch): Promise<string | undefined> {
   const token = await accessToken(cfg, f);
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}/values`;
   const tab = `'${cfg.tab.replace(/'/g, "''")}'`;
@@ -69,4 +69,15 @@ export async function appendSheetRow(cfg: SheetConfig, row: string[], f: typeof 
     method: 'POST', headers: auth, body: JSON.stringify({ values: [row] }),
   });
   if (!res.ok) await fail('append', res);
+  const done = (await res.json().catch(() => ({}))) as { updates?: { updatedRange?: string } };
+  return done.updates?.updatedRange; // e.g. Leads!A5:M5
+}
+
+/** Which spreadsheet and tabs the settings point at, so a wrong or copied sheet is easy to spot. */
+export async function sheetInfo(cfg: SheetConfig, f: typeof fetch = fetch): Promise<{ title: string; tabs: string[] }> {
+  const token = await accessToken(cfg, f);
+  const res = await f(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}?fields=properties.title,sheets.properties.title`, { headers: { authorization: `Bearer ${token}` } });
+  const j = (await res.json().catch(() => ({}))) as { properties?: { title?: string }; sheets?: { properties?: { title?: string } }[]; error?: { message?: string } };
+  if (!res.ok) throw new Error(`Google Sheets lookup failed (${res.status}): ${j.error?.message ?? ''}`);
+  return { title: j.properties?.title ?? '', tabs: (j.sheets ?? []).map((x) => x.properties?.title ?? '') };
 }

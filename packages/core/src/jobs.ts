@@ -101,16 +101,16 @@ export async function handleSheetLead(deps: SheetDeps, data: { leadId: string })
        from leads l join contacts c on c.id = l.contact_id where l.id = $1`, [data.leadId]);
   if (!l || l.sheet_synced_at) return { skipped: true, reason: 'already_synced' };
   const utm = Object.entries((l.utm ?? {}) as Record<string, string>).map(([k, v]) => `${k}=${v}`).join('; ');
-  await appendSheetRow(cfg, [
+  const range = await appendSheetRow(cfg, [
     ist(l.created_at), l.name, l.phone_e164, l.business_type, l.ad_source ?? '',
     Array.isArray(l.wants) ? l.wants.join('; ') : '', String(l.est_monthly_loss ?? ''),
     l.opt_in ? 'yes' : 'no', l.consent_text, utm, l.id, 'new', '',
   ], deps.fetchImpl ?? fetch);
   await deps.db.query('update leads set sheet_synced_at = now() where id = $1', [l.id]);
-  return { skipped: false };
+  return { skipped: false, range };
 }
 
-export interface SheetSyncResult { configured: boolean; total: number; synced: number; error?: string }
+export interface SheetSyncResult { configured: boolean; total: number; synced: number; error?: string; lastRange?: string }
 
 /** Adds every lead not yet in the sheet, oldest first. Stops at the first error and reports it. */
 export async function syncPendingLeadsToSheet(deps: SheetDeps): Promise<SheetSyncResult> {
@@ -121,13 +121,15 @@ export async function syncPendingLeadsToSheet(deps: SheetDeps): Promise<SheetSyn
   }
   const { rows } = await deps.db.query<{ id: string }>('select id from leads where sheet_synced_at is null order by created_at asc');
   let synced = 0;
+  let lastRange: string | undefined;
   for (const r of rows) {
     try {
-      await handleSheetLead(deps, { leadId: r.id });
+      const out = await handleSheetLead(deps, { leadId: r.id });
+      lastRange = (('range' in out ? out.range : undefined) as string | undefined) ?? lastRange;
       synced++;
     } catch (e) {
       return { configured: true, total: rows.length, synced, error: (e as Error).message };
     }
   }
-  return { configured: true, total: rows.length, synced };
+  return { configured: true, total: rows.length, synced, lastRange };
 }

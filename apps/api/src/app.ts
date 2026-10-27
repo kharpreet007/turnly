@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, sheetConfig, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, sheetConfig, sheetInfo, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -139,8 +139,16 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       else if (r.error) msg = `Stopped after ${r.synced} of ${r.total} leads. Google said: ${r.error}`;
       else if (r.total === 0) msg = 'Nothing to add: every lead is already in the sheet.';
       else msg = `Done. Added ${r.synced} lead${r.synced === 1 ? '' : 's'} to the Google Sheet.`;
+      let where = '';
+      try {
+        const cfg = sheetConfig(process.env);
+        if (cfg) {
+          const info = await sheetInfo(cfg);
+          where = `<p><b>Writing to:</b> spreadsheet "${esc(info.title)}" (ID ends …${esc(cfg.sheetId.slice(-6))}), tab "${esc(cfg.tab)}". Tabs in that spreadsheet: ${esc(info.tabs.join(', '))}.` + (r.lastRange ? `<br><b>Last rows written:</b> ${esc(r.lastRange)}` : '') + '</p>';
+        }
+      } catch (e) { where = `<p>Could not look up the spreadsheet: ${esc((e as Error).message)}</p>`; }
       return reply.code(r.error || !r.configured ? 500 : 200).type('text/html; charset=utf-8').send(
-        `<!doctype html><meta name=viewport content="width=device-width"><title>Sheet sync</title><body style="font:16px system-ui;max-width:640px;margin:40px auto;padding:0 16px"><h2>Google Sheet sync</h2><p>${esc(msg)}</p>`);
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Sheet sync</title><body style="font:16px system-ui;max-width:640px;margin:40px auto;padding:0 16px"><h2>Google Sheet sync</h2><p>${esc(msg)}</p>${where}`);
     } });
 
     // WhatsApp message templates: list, send to Meta for approval, refresh approval status.
