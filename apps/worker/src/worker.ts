@@ -1,6 +1,6 @@
 import {
   createCloudClient, createDb, createTwilioClient, twilioConfig, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
-  handleSheetLead, handleWebhookJob, syncPendingLeadsToSheet, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
+  handleSheetLead, handleWebhookJob, syncPendingLeadsToSheet, syncLeadAnswersToSheet, alertFlowFinished, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
 const url = process.env.DATABASE_URL!;
@@ -52,10 +52,15 @@ const sheetTick = async () => {
       console.log(`[sheet] added ${r.synced} lead(s)`);
       await db.query(`insert into events (name, props) values ('sheet_sync_ok', $1)`, [JSON.stringify({ added: r.synced })]);
     }
+    const a = await syncLeadAnswersToSheet({ db, env: process.env });
+    if (a.error) console.warn('[sheet] answers sync failed:', a.error);
+    else if (a.updated > 0) console.log(`[sheet] updated chat answers for ${a.updated} lead(s)`);
   } catch (e) {
     console.warn('[sheet] sync crashed:', (e as Error).message);
   }
 };
+// Safety net for lead chats: alert you about any finished chat whose alert did not go out the first time.
+setInterval(() => { alertFlowFinished(deps).catch((e) => console.warn('[flow] alert failed:', (e as Error).message)); }, 30_000);
 setInterval(sheetTick, 60_000);
 setTimeout(sheetTick, 10_000);
 console.log('worker ready');

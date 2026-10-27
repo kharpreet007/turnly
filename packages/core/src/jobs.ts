@@ -3,7 +3,9 @@ import type { Db } from './db.ts';
 import { sendMessage, WINDOW_MS, type SendDeps } from './sendMessage.ts';
 import { processWebhook } from './webhook.ts';
 import { ist } from './export.ts';
-import { appendSheetRow, sheetConfig } from './sheets.ts';
+import { startLeadFlow } from './leadFlow.ts';
+import { appendSheetRow, sheetConfig, updateSheetAnswers } from './sheets.ts';
+import { notifyOperators } from './operatorAlerts.ts';
 
 export interface JobDeps extends SendDeps {
   fetchImpl?: typeof fetch;
@@ -17,10 +19,11 @@ export async function handleSendWelcome(deps: JobDeps, data: { leadId: string })
   if (!l) return { ok: false, reason: 'lead_not_found' };
   const res = await sendMessage(deps, {
     businessId: l.business_id, contactId: l.contact_id, purpose: 'proactive',
-    payload: { kind: 'template', name: 'turnly_demo_welcome', language: 'en', variables: [l.name, l.business_type] },
+    payload: { kind: 'template', name: 'turnly_demo_welcome', language: 'en', variables: [l.name] },
     dedupeKey: `welcome:${data.leadId}`, actor: 'lead_welcome',
   });
   if (res.ok) {
+    await startLeadFlow(deps.db, l.business_id, l.contact_id, data.leadId);
     await deps.db.query(`update leads set status = 'contacted', updated_at = now() where id = $1 and status = 'new'`, [data.leadId]);
   }
   return res;
@@ -29,29 +32,17 @@ export async function handleSendWelcome(deps: JobDeps, data: { leadId: string })
 /**
  * Tell every allow-listed operator number about a new lead. Inside the 24h window (the operator
  * messaged the number recently) this is a plain text, so it works before any template is approved.
- * Outside the window it falls back to the approved template.
  */
 export async function handleAlertOperator(deps: JobDeps, data: { leadId: string }) {
   const { rows: [l] } = await deps.db.query(
-    `select l.business_id, l.name, l.business_type, l.phone_e164, coalesce(l.ad_source, 'direct') as src, b.owner_phone_e164s
-       from leads l join businesses b on b.id = l.business_id where l.id = $1`, [data.leadId]);
+    `select business_id, name, business_type, phone_e164, coalesce(ad_source, 'direct') as src from leads where id = $1`, [data.leadId]);
   if (!l) return [];
-  const now = (deps.now ?? (() => new Date()))();
-  const results = [];
-  for (const phone of l.owner_phone_e164s as string[]) {
-    const { rows: [c] } = await deps.db.query(
-      'select id, last_inbound_at from contacts where business_id = $1 and phone_e164 = $2', [l.business_id, phone]);
-    if (!c) continue;
-    const inWindow = !!c.last_inbound_at && now.getTime() - new Date(c.last_inbound_at).getTime() < WINDOW_MS;
-    const payload = inWindow
-      ? { kind: 'text' as const, body: `New Turnly demo request: ${l.name} (${l.business_type}), ${l.phone_e164}. Source: ${l.src}.` }
-      : { kind: 'template' as const, name: 'turnly_operator_new_lead', language: 'en', variables: [l.name, l.business_type, l.phone_e164, l.src] };
-    results.push(await sendMessage(deps, {
-      businessId: l.business_id, contactId: c.id, purpose: 'operator_alert', payload,
-      dedupeKey: `alert:${data.leadId}:${c.id}`, actor: 'operator_alert',
-    }));
-  }
-  return results;
+  return notifyOperators(deps, l.business_id, {
+    dedupeBase: `alert:${data.leadId}`,
+    text: `New Turnly demo request: ${l.name} (${l.business_type}), ${l.phone_e164}. Source: ${l.src}.`,
+    templateName: 'turnly_operator_new_lead',
+    templateVars: [l.name, l.business_type, l.phone_e164, l.src],
+  });
 }
 
 export async function handleWebhookJob(deps: JobDeps, payload: unknown) {
@@ -132,4 +123,26 @@ export async function syncPendingLeadsToSheet(deps: SheetDeps): Promise<SheetSyn
     }
   }
   return { configured: true, total: rows.length, synced, lastRange };
+}
+
+/** Writes each lead's chat answers into the sheet row (columns N to Q). Retries next minute if the row is not there yet. */
+export async function syncLeadAnswersToSheet(deps: SheetDeps): Promise<{ updated: number; error?: string }> {
+  let cfg;
+  try { cfg = sheetConfig(deps.env ?? process.env); } catch (e) { return { updated: 0, error: (e as Error).message }; }
+  if (!cfg) return { updated: 0 };
+  const { rows } = await deps.db.query(
+    `select id, answers from leads where answers_dirty and sheet_synced_at is not null order by created_at asc limit 20`);
+  let updated = 0;
+  for (const l of rows) {
+    const a = (l.answers ?? {}) as Record<string, string>;
+    try {
+      const done = await updateSheetAnswers(cfg, l.id, [
+        a.interest ?? '', a.detail ?? '', a.business ?? '', a.best_time ?? '',
+      ], deps.fetchImpl ?? fetch);
+      if (done) { await deps.db.query('update leads set answers_dirty = false where id = $1', [l.id]); updated++; }
+    } catch (e) {
+      return { updated, error: (e as Error).message };
+    }
+  }
+  return { updated };
 }

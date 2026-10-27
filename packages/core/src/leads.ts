@@ -87,7 +87,7 @@ export async function createLead(db: Db, input: LeadInput, meta: LeadMeta = {}):
 export async function listLeads(db: Db, opts: { status?: string; limit?: number } = {}) {
   const { rows } = await db.query(
     `select l.id, l.name, l.phone_e164, l.business_type, l.ad_source, l.status, l.created_at, l.submissions,
-            c.opt_in, c.opted_out_at,
+            c.opt_in, c.opted_out_at, l.flow_status, l.answers,
             (select status from messages m where m.contact_id = l.contact_id and m.direction = 'out'
               order by m.created_at limit 1) as welcome_status
        from leads l join contacts c on c.id = l.contact_id

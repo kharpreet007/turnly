@@ -5,13 +5,14 @@ export interface LeadExportRow {
   wants: unknown; est_monthly_loss: number | null; status: string; opt_in: boolean; opted_out_at: Date | null;
   welcome_status: string | null; submissions: number; utm: Record<string, string>; fbclid: string | null;
   referrer: string | null; consent_text: string; consent_at: Date; notes: string | null;
+  flow_status: string; answers: Record<string, string>;
 }
 
 export async function exportLeads(db: Db): Promise<LeadExportRow[]> {
   const { rows } = await db.query(
     `select l.created_at, l.name, l.phone_e164, l.business_type, l.ad_source, l.wants, l.est_monthly_loss,
             l.status, c.opt_in, c.opted_out_at, l.submissions, l.utm, l.fbclid, l.referrer,
-            l.consent_text, l.consent_at, l.notes,
+            l.consent_text, l.consent_at, l.notes, l.flow_status, l.answers,
             (select status from messages m where m.contact_id = l.contact_id and m.direction = 'out'
               and m.template_name = 'turnly_demo_welcome' order by m.created_at limit 1) as welcome_status
        from leads l join contacts c on c.id = l.contact_id
@@ -31,7 +32,8 @@ const cell = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
 export function leadsToCsv(rows: LeadExportRow[]): string {
   const head = ['When (IST)', 'Name', 'WhatsApp', 'Business type', 'Source', 'Plans wanted', 'Est. monthly loss (INR)',
-    'Status', 'Opt-in', 'Welcome message', 'Submissions', 'UTM', 'Referrer', 'Consent given at (IST)', 'Consent text', 'Notes'];
+    'Status', 'Opt-in', 'Welcome message', 'Submissions', 'UTM', 'Referrer', 'Consent given at (IST)', 'Consent text', 'Notes',
+    'Chat status', 'Interest', 'Detail', 'Business (chat)', 'Best time to call'];
   const lines = rows.map((r) => {
     const wants = Array.isArray(r.wants) ? r.wants.join('; ') : '';
     const utm = Object.entries(r.utm ?? {}).map(([k, v]) => `${k}=${v}`).join('; ');
@@ -41,6 +43,8 @@ export function leadsToCsv(rows: LeadExportRow[]): string {
       cell(safe(wants)), String(r.est_monthly_loss ?? ''), r.status,
       r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no', cell(safe(r.welcome_status)), String(r.submissions),
       cell(safe(utm)), cell(safe(r.referrer)), ist(r.consent_at), cell(safe(r.consent_text)), cell(safe(r.notes)),
+      cell(safe(r.flow_status === 'none' ? '' : r.flow_status)), cell(safe(r.answers?.interest)), cell(safe(r.answers?.detail)),
+      cell(safe(r.answers?.business)), cell(safe(r.answers?.best_time)),
     ];
     return cols.map((c, i) => (i === 0 || i === 13 ? cell(c) : c)).join(',');
   });

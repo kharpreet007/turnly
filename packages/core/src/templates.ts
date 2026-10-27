@@ -15,13 +15,19 @@ export const PHASE0_TEMPLATES: TemplateDef[] = [
     language: 'en',
     // The person asked for this on the form, so it answers their request.
     category: 'UTILITY',
-    body: 'Hi {{1}}, thanks for asking about Turnly. Here is a quick demo for your {{2}}: we reply to your customers in seconds and collect booking requests. Reply YES and we will send the sample. Reply STOP to opt out.',
+    body: 'Hi {{1}}, thanks for your query. Our support team will contact you soon. In the meantime, are you looking for packages or services? Reply 1 for Packages or 2 for Services. Reply STOP to opt out.',
   },
   {
     name: 'turnly_operator_new_lead',
     language: 'en',
     category: 'UTILITY',
     body: 'New Turnly lead: {{1}} ({{2}}), {{3}}. Source: {{4}}.',
+  },
+  {
+    name: 'turnly_operator_lead_update',
+    language: 'en',
+    category: 'UTILITY',
+    body: 'Lead update: {{1}}. Wants: {{2}}. Business: {{3}}. Best time to call: {{4}}.',
   },
 ];
 

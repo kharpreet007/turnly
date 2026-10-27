@@ -3,6 +3,8 @@ import type { Db } from './db.ts';
 import { fromWaId } from './phone.ts';
 import { isOptOut, OPTOUT_CONFIRMATION } from './optout.ts';
 import { sendMessage, type SendDeps } from './sendMessage.ts';
+import { advanceLeadFlow } from './leadFlow.ts';
+import { alertFlowFinished } from './operatorAlerts.ts';
 
 export function verifySignature(rawBody: Buffer, header: string | undefined, appSecret: string): boolean {
   if (!header?.startsWith('sha256=')) return false;
@@ -89,7 +91,11 @@ async function handleInbound(deps: SendDeps, businessId: string, m: InboundMessa
      returning id`,
     [businessId, contact.id, m.id, m.type, body, at],
   );
-  if (!ins.rows[0]) return 'duplicate';
+  if (!ins.rows[0]) {
+    // A replay: the flow remembers message ids, so this only completes work an earlier attempt left unfinished.
+    await runFlow(deps, businessId, contact.id, m, body);
+    return 'duplicate';
+  }
 
   await db.query(
     `insert into conversations (business_id, contact_id, window_expires_at)
@@ -110,6 +116,8 @@ async function handleInbound(deps: SendDeps, businessId: string, m: InboundMessa
     });
     return 'optout';
   }
+
+  await runFlow(deps, businessId, contact.id, m, body);
 
   // Funnel: a reply to our welcome moves a new lead to "contacted".
   await db.query(
@@ -136,4 +144,12 @@ async function applyStatus(db: Db, businessId: string, s: any) {
       where business_id = $1 and wa_message_id = $2
         and coalesce(case status when 'sent' then 1 when 'delivered' then 2 when 'read' then 3 else 0 end, 0) < $4`,
     [businessId, s.id, status, rank]);
+}
+
+async function runFlow(deps: SendDeps, businessId: string, contactId: string, m: InboundMessage, body: string) {
+  if (m.type !== 'text' && m.type !== 'interactive') return;
+  const outcome = await advanceLeadFlow(deps, { businessId, contactId, waMessageId: m.id, text: body });
+  if (outcome === 'done' || outcome === 'handoff') {
+    try { await alertFlowFinished(deps); } catch (e) { console.warn('[flow] operator alert failed:', (e as Error).message); }
+  }
 }

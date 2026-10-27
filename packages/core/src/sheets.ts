@@ -94,3 +94,35 @@ export async function clearSheetRows(cfg: SheetConfig, f: typeof fetch = fetch):
     throw new Error(`Google Sheets clear failed (${res.status}): ${j.error?.message ?? ''}`);
   }
 }
+
+export const ANSWER_HEADERS = ['Interest', 'Detail', 'Business (chat)', 'Best time to call'];
+
+/**
+ * Writes the chat answers into columns N to Q of the lead's row (found by the Lead ID in column K).
+ * Returns false when the row is not in the sheet yet.
+ */
+export async function updateSheetAnswers(cfg: SheetConfig, leadId: string, values: string[], f: typeof fetch = fetch): Promise<boolean> {
+  const token = await accessToken(cfg, f);
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}/values`;
+  const tab = `'${cfg.tab.replace(/'/g, "''")}'`;
+  const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  const fail = async (what: string, res: Response) => {
+    const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(`Google Sheets ${what} failed (${res.status}): ${j.error?.message ?? ''}`);
+  };
+  const col = await f(`${base}/${encodeURIComponent(`${tab}!K:K`)}`, { headers: auth });
+  if (!col.ok) await fail('read', col);
+  const ids = ((await col.json()) as { values?: string[][] }).values ?? [];
+  const idx = ids.findIndex((r) => r[0] === leadId);
+  if (idx < 0) return false;
+  const row = idx + 1;
+  const head = await f(`${base}/${encodeURIComponent(`${tab}!N1`)}`, { headers: auth });
+  if (!head.ok) await fail('read', head);
+  if (!((await head.json()) as { values?: string[][] }).values?.length) {
+    const put = await f(`${base}/${encodeURIComponent(`${tab}!N1:Q1`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [ANSWER_HEADERS] }) });
+    if (!put.ok) await fail('header write', put);
+  }
+  const res = await f(`${base}/${encodeURIComponent(`${tab}!N${row}:Q${row}`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [values] }) });
+  if (!res.ok) await fail('answers write', res);
+  return true;
+}
