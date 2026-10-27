@@ -404,7 +404,7 @@ footer nav { padding: 0; display: flex; gap: 20px; }
     var b = BIZ[key] || BIZ.salon; cur = BIZ[key] ? key : 'salon';
     var hd = HEAD[cur];
     $('h1').innerHTML = esc(hd[0]) + ' <span class="acc">' + esc(hd[1]) + '</span>';
-    $('lede').textContent = 'Turnly replies in seconds, sends your price list and books the slot while you are busy with ' + hd[2] + '.';
+    $('lede').textContent = 'We set up WhatsApp on your own number so it replies in seconds, sends your price list and books the slot while you are busy with ' + hd[2] + '. Then we stay on hand for support.';
     $('cta1').textContent = 'Get this set up for my ' + b.word;
     document.querySelectorAll('.chip').forEach(function (c) { var on = c.getAttribute('data-biz') === cur; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); });
     $('biz-word').textContent = b.word;
