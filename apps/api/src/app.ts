@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, sheetConfig, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -189,13 +189,22 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
            from messages m join contacts c on c.id = m.contact_id where m.direction = 'out' order by m.created_at desc limit 20`);
       const { rows: audits } = await db.query(
         `select created_at, action, detail from audit_log where action in ('send_refused', 'send_failed') order by id desc limit 20`);
+      let sheet: string;
+      try {
+        if (!sheetConfig(process.env)) sheet = 'not set up (add the Google variables in Railway)';
+        else {
+          const { rows: [w] } = await db.query(`select count(*)::int as n from leads where sheet_synced_at is null`);
+          const { rows: [ev] } = await db.query(`select name, props, created_at from events where name in ('sheet_sync_error', 'sheet_sync_ok') order by id desc limit 1`);
+          sheet = `${w.n} lead(s) waiting to be added.` + (ev?.name === 'sheet_sync_error' ? ` Last error (${ist(ev.created_at)} IST): ${ev.props.message}` : ev ? ' Last sync: OK.' : '');
+        }
+      } catch (e) { sheet = `problem: ${(e as Error).message}`; }
       const t = (d: Date) => esc(ist(d));
       const rowsHtml = msgs.map((m: any) => `<tr><td>${t(m.created_at)}<td>${esc(mask(m.phone_e164))}<td>${esc(m.template_name ?? m.type)}<td><b>${esc(m.status)}</b><td>${esc(m.error ?? '')}</tr>`).join('');
       const auditHtml = audits.map((a: any) => `<tr><td>${t(a.created_at)}<td>${esc(a.action)}<td>${esc(a.detail?.reason ?? a.detail?.error ?? '')}<td>${esc(a.detail?.purpose ?? '')}</tr>`).join('');
       return reply.type('text/html; charset=utf-8').send(
         `<!doctype html><meta name=viewport content="width=device-width"><title>Status</title><body style="font:15px system-ui;max-width:900px;margin:30px auto;padding:0 16px">
 <h2>Sending status</h2>
-<p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
+<p><b>Google Sheet:</b> ${esc(sheet)}</p><p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
 <h3>Last messages we tried to send</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>To<th>What<th>Status<th>Error</tr>${rowsHtml || '<tr><td colspan=5>None yet'}</table>
 <h3>Messages we refused or that failed</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>Kind<th>Reason<th>For</tr>${auditHtml || '<tr><td colspan=4>None'}</table>
 <p style="color:#666">Reasons: outside_window = the person has not messaged the number in the last 24 hours; template_not_approved = template not approved yet; no_consent / opted_out = we must not message them; no_number = no WhatsApp number set up.</p>`);

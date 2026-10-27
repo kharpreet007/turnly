@@ -1,6 +1,6 @@
 import {
   createCloudClient, createDb, createTwilioClient, twilioConfig, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
-  handleSheetLead, handleWebhookJob, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
+  handleSheetLead, handleWebhookJob, syncPendingLeadsToSheet, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
 const url = process.env.DATABASE_URL!;
@@ -38,6 +38,26 @@ await boss.work('alert_operator', each((d: { leadId: string }) => handleAlertOpe
 await boss.work('wa_webhook', each((d: unknown) => handleWebhookJob(deps, d)));
 await boss.work('sheet_lead', each((d: { leadId: string }) => handleSheetLead(deps, d)));
 await boss.work('capi_lead', each((d: { leadId: string }) => handleCapi(deps, d)));
+// Safety net for the Google Sheet: every minute, add any lead that is still missing. Errors are kept for the status page.
+const sheetTick = async () => {
+  try {
+    const r = await syncPendingLeadsToSheet({ db, env: process.env });
+    if (r.error) {
+      console.warn('[sheet] sync failed:', r.error);
+      await db.query(
+        `insert into events (name, props) select 'sheet_sync_error', $1::jsonb
+          where not exists (select 1 from events where name = 'sheet_sync_error' and created_at > now() - interval '10 minutes' and props->>'message' = $2)`,
+        [JSON.stringify({ message: r.error }), r.error]);
+    } else if (r.synced > 0) {
+      console.log(`[sheet] added ${r.synced} lead(s)`);
+      await db.query(`insert into events (name, props) values ('sheet_sync_ok', $1)`, [JSON.stringify({ added: r.synced })]);
+    }
+  } catch (e) {
+    console.warn('[sheet] sync crashed:', (e as Error).message);
+  }
+};
+setInterval(sheetTick, 60_000);
+setTimeout(sheetTick, 10_000);
 console.log('worker ready');
 
 const stop = async () => { await boss.stop(); await db.end(); process.exit(0); };

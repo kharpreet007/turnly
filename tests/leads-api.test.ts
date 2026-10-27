@@ -284,3 +284,12 @@ describe('delete contact', () => {
     expect((await db.query(`select 1 from contacts where phone_e164 = '+919000000001'`)).rowCount).toBe(1);
   });
 });
+
+describe('status page: Google Sheet line', () => {
+  it('says the sheet is not set up when the Google variables are missing', async () => {
+    const app = await makeHarness().build();
+    const res = await app.inject({ method: 'GET', url: '/admin/status', headers: { authorization: 'Bearer admin-secret' } });
+    expect(res.body).toContain('Google Sheet:');
+    expect(res.body).toContain('not set up');
+  });
+});
