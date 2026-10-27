@@ -8,6 +8,11 @@ export interface TwilioConfig {
   statusCallback?: string;
   /** Approved Twilio Content templates: { "turnly_demo_welcome": "HXxxxx" }. Without one, the text is sent as a plain message. */
   contentSids: Record<string, string>;
+  /**
+   * Sandbox fallback: a pre-approved Twilio template with two variables (e.g. the sandbox "Appointment Reminders"
+   * template). Used when Twilio refuses plain text with 21654 "ContentSid Required". The message text goes in {{1}}.
+   */
+  fallbackContentSid?: string;
 }
 
 export function twilioConfig(env: Record<string, string | undefined>): TwilioConfig | null {
@@ -22,6 +27,7 @@ export function twilioConfig(env: Record<string, string | undefined>): TwilioCon
   const base = env.PUBLIC_BASE_URL?.replace(/\/$/, '');
   return {
     accountSid, authToken, contentSids,
+    fallbackContentSid: env.TWILIO_FALLBACK_CONTENT_SID?.trim() || undefined,
     from: from.startsWith('whatsapp:') ? from : `whatsapp:${from}`,
     statusCallback: base ? `${base}/twilio/status` : undefined,
   };
@@ -42,21 +48,34 @@ export function createTwilioClient(cfg: TwilioConfig, f: typeof fetch = fetch): 
       } else {
         body.set('Body', payload.body);
       }
-      let res: Response;
-      try {
-        res = await f(`https://api.twilio.com/2010-04-01/Accounts/${cfg.accountSid}/Messages.json`, {
-          method: 'POST',
-          headers: {
-            authorization: 'Basic ' + Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString('base64'),
-            'content-type': 'application/x-www-form-urlencoded',
-          },
-          body,
-          signal: AbortSignal.timeout(10_000),
-        });
-      } catch (e) {
-        throw new WaSendError(`network: ${(e as Error).message}`, true);
+      const post = async (form: URLSearchParams) => {
+        let res: Response;
+        try {
+          res = await f(`https://api.twilio.com/2010-04-01/Accounts/${cfg.accountSid}/Messages.json`, {
+            method: 'POST',
+            headers: {
+              authorization: 'Basic ' + Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString('base64'),
+              'content-type': 'application/x-www-form-urlencoded',
+            },
+            body: form,
+            signal: AbortSignal.timeout(10_000),
+          });
+        } catch (e) {
+          throw new WaSendError(`network: ${(e as Error).message}`, true);
+        }
+        const json = (await res.json().catch(() => ({}))) as { sid?: string; code?: number; message?: string };
+        return { res, json };
+      };
+      let { res, json } = await post(body);
+      if (!res.ok && json.code === 21654 && cfg.fallbackContentSid && !body.has('ContentSid')) {
+        // Twilio wants a template here. Send the same text through the fallback template instead.
+        const text = (payload.kind === 'text' ? payload.body : payload.kind === 'template' ? ctx?.renderedBody : body.get('Body')) ?? '';
+        const retry = new URLSearchParams({ To: body.get('To')!, From: cfg.from });
+        if (cfg.statusCallback) retry.set('StatusCallback', cfg.statusCallback);
+        retry.set('ContentSid', cfg.fallbackContentSid);
+        retry.set('ContentVariables', JSON.stringify({ '1': text.replace(/\s+/g, ' ').slice(0, 900), '2': 'Turnly' }));
+        ({ res, json } = await post(retry));
       }
-      const json = (await res.json().catch(() => ({}))) as { sid?: string; code?: number; message?: string };
       if (!res.ok || !json.sid) {
         const transient = res.status >= 500 || res.status === 429 || json.code === 20429;
         throw new WaSendError(`Twilio ${json.code ?? res.status}: ${json.message ?? 'send failed'}`, transient, json.code);

@@ -113,3 +113,38 @@ describe('Twilio webhooks', () => {
     expect((await db.query(`select status, error from messages where wa_message_id = 'SM55'`)).rows[0]).toMatchObject({ status: 'failed', error: expect.stringContaining('63016') });
   });
 });
+
+describe('Twilio fallback template', () => {
+  it('retries once through the fallback template when Twilio says ContentSid is required', async () => {
+    const calls: any[] = [];
+    const impl = (async (_u: string, init: any) => {
+      calls.push(Object.fromEntries(init.body as URLSearchParams));
+      return calls.length === 1
+        ? new Response(JSON.stringify({ code: 21654, message: 'ContentSid Required' }), { status: 400 })
+        : new Response(JSON.stringify({ sid: 'SM9' }), { status: 201 });
+    }) as unknown as typeof fetch;
+    const client = createTwilioClient({ ...cfg, fallbackContentSid: 'HXfallback' }, impl);
+    const r = await client.send('n', '+919053151756', { kind: 'template', name: 'turnly_operator_new_lead', language: 'en', variables: [] }, { renderedBody: 'New Turnly lead: Asha (salon), +91. Source: fb1.' });
+    expect(r.waMessageId).toBe('SM9');
+    expect(calls).toHaveLength(2);
+    expect(calls[0].Body).toContain('New Turnly lead');
+    expect(calls[1].ContentSid).toBe('HXfallback');
+    expect(calls[1].Body).toBeUndefined();
+    expect(JSON.parse(calls[1].ContentVariables)).toEqual({ '1': 'New Turnly lead: Asha (salon), +91. Source: fb1.', '2': 'Turnly' });
+  });
+
+  it('does not retry without a fallback template, and does not loop', async () => {
+    let n = 0;
+    const impl = (async () => { n++; return new Response(JSON.stringify({ code: 21654, message: 'ContentSid Required' }), { status: 400 }); }) as unknown as typeof fetch;
+    await expect(createTwilioClient(cfg, impl).send('n', '+91', { kind: 'text', body: 'x' })).rejects.toMatchObject({ code: 21654 });
+    expect(n).toBe(1);
+    n = 0;
+    await expect(createTwilioClient({ ...cfg, fallbackContentSid: 'HXf' }, impl).send('n', '+91', { kind: 'text', body: 'x' })).rejects.toMatchObject({ code: 21654 });
+    expect(n).toBe(2);
+  });
+
+  it('reads the fallback from env', () => {
+    const c = twilioConfig({ TWILIO_ACCOUNT_SID: 'AC1', TWILIO_AUTH_TOKEN: 't', TWILIO_WHATSAPP_FROM: '+1415', TWILIO_FALLBACK_CONTENT_SID: ' HXabc ' });
+    expect(c?.fallbackContentSid).toBe('HXabc');
+  });
+});

@@ -20,3 +20,8 @@
 Limits: only phones that sent the join code can be messaged; the join lapses after about 3 days;
 business-started messages outside 24h of the person's last message need a Twilio Content template
 (set TWILIO_CONTENT_SIDS) or a real, approved sender.
+
+## If Twilio answers "21654: ContentSid Required"
+The sandbox may refuse plain text. Set TWILIO_FALLBACK_CONTENT_SID to the sandbox's pre-approved template:
+Console > Messaging > Try it out > Send a WhatsApp message > "API" tab > copy the value after ContentSid (starts with HX).
+The alert text is then sent as the template's first variable.
