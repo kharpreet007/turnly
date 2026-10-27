@@ -254,3 +254,33 @@ describe('sending status page', () => {
     expect(res.body).not.toContain('+919000000001');
   });
 });
+
+describe('delete contact', () => {
+  const auth = { authorization: 'Bearer admin-secret' };
+
+  it('shows what will go, deletes only on POST, and the number works again afterwards', async () => {
+    const h = makeHarness();
+    const app = await h.build();
+    await post(app, validLead());
+    const preview = await app.inject({ method: 'GET', url: '/admin/delete-contact?phone=%2B919876543210', headers: auth });
+    expect(preview.body).toContain('Delete everything for +919876543210');
+    expect((await db.query('select 1 from leads')).rowCount).toBe(1); // GET deleted nothing
+
+    const del = await app.inject({ method: 'POST', url: '/admin/delete-contact', headers: { ...auth, 'content-type': 'application/x-www-form-urlencoded' }, payload: 'phone=%2B919876543210' });
+    expect(del.body).toContain('Deleted');
+    expect((await db.query(`select 1 from leads where phone_e164 = '+919876543210'`)).rowCount).toBe(0);
+    expect((await db.query(`select 1 from contacts where phone_e164 = '+919876543210'`)).rowCount).toBe(0);
+    expect((await db.query(`select 1 from audit_log where action = 'delete_contact'`)).rowCount).toBe(1);
+
+    const again = await post(app, validLead());
+    expect(again.json()).toEqual({ ok: true, duplicate: false });
+  });
+
+  it('refuses the operator number and needs the token', async () => {
+    const app = await makeHarness().build();
+    expect((await app.inject({ method: 'GET', url: '/admin/delete-contact?phone=%2B919876543210' })).statusCode).toBe(401);
+    const res = await app.inject({ method: 'POST', url: '/admin/delete-contact', headers: { ...auth, 'content-type': 'application/x-www-form-urlencoded' }, payload: 'phone=%2B919000000001' });
+    expect(res.statusCode).toBe(403);
+    expect((await db.query(`select 1 from contacts where phone_e164 = '+919000000001'`)).rowCount).toBe(1);
+  });
+});

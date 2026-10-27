@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -122,6 +122,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
 
   // --- Minimal operator lead list ---
   await app.register(async (admin) => {
+    await admin.register(formbody); // the delete confirmation posts a plain HTML form
     admin.addHook('onRequest', async (req, reply) => {
       const bearer = (req.headers.authorization ?? '').replace(/^Bearer /, '');
       const token = bearer || (req.query as Record<string, string>).token;
@@ -200,6 +201,33 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
 <p style="color:#666">Reasons: outside_window = the person has not messaged the number in the last 24 hours; template_not_approved = template not approved yet; no_consent / opted_out = we must not message them; no_number = no WhatsApp number set up.</p>`);
     });
 
+    // Delete one person's data. GET shows what would go; only a POST deletes.
+    const deletePage = (reply: any, body: string, code = 200) => reply.code(code).type('text/html; charset=utf-8').send(
+      `<!doctype html><meta name=viewport content="width=device-width"><title>Delete</title><body style="font:16px system-ui;max-width:640px;margin:40px auto;padding:0 16px">${body}`);
+    const selfId = async () => (await db.query(`select id from businesses where is_self`)).rows[0].id as string;
+    const normPhone = (raw: string) => `+${(raw ?? '').replace(/\D/g, '')}`;
+
+    admin.get('/admin/delete-contact', async (req, reply) => {
+      const q = req.query as Record<string, string>;
+      const phone = normPhone(q.phone);
+      const f = await contactFootprint(db, await selfId(), phone);
+      if (!f.found) return deletePage(reply, `<h2>Nothing to delete</h2><p>We hold no data for ${esc(phone)}.</p>`);
+      return deletePage(reply, `<h2>Delete everything for ${esc(phone)}?</h2>
+<p>This permanently removes ${f.leads} lead(s), ${f.messages} message(s), ${f.conversations} conversation(s) and the contact. It cannot be undone. Rows already in your Google Sheet are not touched: delete those by hand.</p>
+<form method="post" action="/admin/delete-contact?token=${encodeURIComponent(q.token ?? '')}"><input type="hidden" name="phone" value="${esc(phone)}"><button style="font:600 16px system-ui;padding:10px 18px">Yes, delete permanently</button></form>`);
+    });
+
+    admin.post('/admin/delete-contact', async (req, reply) => {
+      const phone = normPhone(((req.body ?? {}) as Record<string, string>).phone ?? (req.query as Record<string, string>).phone);
+      try {
+        const f = await deleteContact(db, await selfId(), phone);
+        return deletePage(reply, `<h2>Deleted</h2><p>Removed ${f.leads} lead(s), ${f.messages} message(s) and the contact for ${esc(phone)}. You can use this number for a fresh test now.</p>`);
+      } catch (e) {
+        if (e instanceof ProtectedNumberError) return deletePage(reply, `<h2>Not deleted</h2><p>${esc(e.message)}</p>`, 403);
+        throw e;
+      }
+    });
+
     admin.get('/admin/leads.csv', async (_req, reply) => {
       const csv = leadsToCsv(await exportLeads(db));
       return reply
@@ -212,9 +240,9 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       const q = req.query as Record<string, string>;
       const rows = await listLeads(db, { status: q.status });
       if (q.format !== 'html') return rows;
-      const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td></tr>`).join('');
+      const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td><td><a href="/admin/delete-contact?phone=${encodeURIComponent(r.phone_e164)}&token=${encodeURIComponent(q.token ?? '')}">Delete</a></td></tr>`).join('');
       return reply.type('text/html').send(
-        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome</tr>${tr}</table>`);
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome<th></tr>${tr}</table>`);
     });
 
     admin.patch('/admin/leads/:id', async (req, reply) => {
