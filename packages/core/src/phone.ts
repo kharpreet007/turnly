@@ -9,7 +9,8 @@ export const CALLING_CODES: CountryRule[] = [
   row('91', 'IN', 'India', 10, 10, /^[6-9]/),
   row('971', 'AE', 'UAE', 9, 9, /^5/),
   row('44', 'GB', 'UK', 9, 10, /^[1-9]/),
-  row('1', 'US', 'US / Canada', 10, 10, /^[2-9]/),
+  row('1', 'US', 'United States', 10, 10, /^[2-9]/),
+  row('1', 'CA', 'Canada', 10, 10, /^[2-9]/), // same +1 and rules as the US
   row('65', 'SG', 'Singapore', 8, 8, /^[3689]/),
   row('61', 'AU', 'Australia', 9, 9, /^[2-578]/),
   row('64', 'NZ', 'New Zealand', 8, 10),

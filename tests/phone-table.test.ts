@@ -12,8 +12,8 @@ describe('country table', () => {
     expect(page.length).toBeGreaterThanOrEqual(36);
   });
 
-  it('has unique country codes', () => {
-    const codes = CALLING_CODES.map((c) => c.cc);
+  it('has unique country entries', () => {
+    const codes = CALLING_CODES.map((c) => c.iso);
     expect(new Set(codes).size).toBe(codes.length);
   });
 
