@@ -249,6 +249,8 @@ describe('sending status page', () => {
     const res = await app.inject({ method: 'GET', url: '/admin/status', headers: { authorization: 'Bearer admin-secret' } });
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain('Provider:');
+    expect(res.body).toContain('Running version:');
+    expect(res.body).toContain('NOT SET');
     expect(res.body).toContain('+91•••••0001');
     expect(res.body).toContain('turnly_operator_new_lead');
     expect(res.body).not.toContain('+919000000001');
