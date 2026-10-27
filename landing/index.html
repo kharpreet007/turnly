@@ -199,7 +199,8 @@ form { display: flex; flex-direction: column; gap: 16px; }
 .fld { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
 .fld input, .fld select { font: 400 16px var(--f-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; width: 100%; min-width: 0; }
 .fld input:focus, .fld select:focus { border-color: var(--accent); outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
-.ph { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px; }
+.ph { display: grid; grid-template-columns: 158px minmax(0, 1fr); gap: 8px; }
+.ph select { text-overflow: ellipsis; }
 .consent { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; color: var(--muted); font-weight: 400; }
 .consent input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--accent); flex: none; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
@@ -344,7 +345,7 @@ footer nav { padding: 0; display: flex; gap: 20px; }
         <label class="fld" for="f-name">Your name<input id="f-name" type="text" autocomplete="name" placeholder="Asha Verma"></label>
         <label class="fld" for="f-phone">WhatsApp number
           <div class="ph">
-            <select id="f-cc" aria-label="Country code"><option value="91">+91 India</option><option value="971">+971 UAE</option><option value="44">+44 UK</option><option value="65">+65 Singapore</option></select>
+            <select id="f-cc" aria-label="Country code"><option value="91">+91 India</option></select>
             <input id="f-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="98765 43210">
           </div>
         </label>
@@ -438,7 +439,14 @@ footer nav { padding: 0; display: flex; gap: 20px; }
   document.querySelectorAll('.chip').forEach(function (c) { c.addEventListener('click', function () { applyBiz(c.getAttribute('data-biz')); $('chips').classList.add('collapsed'); $('chip-change').focus(); }); });
   $('chip-change').addEventListener('click', function () { $('chips').classList.remove('collapsed'); var on = document.querySelector('.chip.on'); if (on) on.focus(); });
 
-  var RULES = { '91': [10, /^[6-9]/], '971': [9, /^5/], '44': [10, /^[1-9]/], '65': [8, /^[3689]/] };
+  // [country code, name, min digits, max digits, leading-digit pattern]. Same table as the backend (packages/core/src/phone.ts).
+  var COUNTRIES = [["91","India",10,10,"^[6-9]"],["971","UAE",9,9,"^5"],["44","UK",9,10,"^[1-9]"],["1","US / Canada",10,10,"^[2-9]"],["65","Singapore",8,8,"^[3689]"],["61","Australia",9,9,"^[2-578]"],["64","New Zealand",8,10,""],["966","Saudi Arabia",9,9,"^5"],["974","Qatar",8,8,""],["968","Oman",8,8,""],["965","Kuwait",8,8,""],["973","Bahrain",8,8,""],["60","Malaysia",9,10,""],["92","Pakistan",10,10,"^3"],["880","Bangladesh",10,10,"^1"],["94","Sri Lanka",9,9,""],["977","Nepal",10,10,""],["27","South Africa",9,9,""],["234","Nigeria",10,10,""],["254","Kenya",9,9,""],["233","Ghana",9,9,""],["255","Tanzania",9,9,""],["256","Uganda",9,9,""],["20","Egypt",10,10,""],["62","Indonesia",9,12,""],["63","Philippines",10,10,""],["66","Thailand",9,9,""],["84","Vietnam",9,10,""],["81","Japan",9,10,""],["82","South Korea",9,10,""],["86","China",11,11,""],["852","Hong Kong",8,8,""],["49","Germany",10,11,""],["33","France",9,9,""],["39","Italy",9,10,""],["34","Spain",9,9,""],["31","Netherlands",9,9,""],["353","Ireland",9,9,""],["41","Switzerland",9,9,""],["46","Sweden",9,9,""],["90","Turkey",10,10,""],["55","Brazil",10,11,""],["52","Mexico",10,10,""],["7","Russia",10,10,""]];
+  (function () {
+    var sel = $('f-cc'), byZone = { 'Asia/Kolkata': '91', 'Asia/Calcutta': '91', 'Asia/Dubai': '971', 'Europe/London': '44', 'Asia/Singapore': '65', 'Australia/Sydney': '61', 'America/New_York': '1', 'America/Chicago': '1', 'America/Los_Angeles': '1', 'America/Toronto': '1' };
+    sel.innerHTML = COUNTRIES.map(function (c) { return '<option value="' + c[0] + '">+' + c[0] + ' ' + esc(c[1]) + '</option>'; }).join('');
+    var guess; try { guess = byZone[Intl.DateTimeFormat().resolvedOptions().timeZone]; } catch (e) {}
+    sel.value = guess || '91';
+  })();
   function showErr(t) { $('form-err').innerHTML = t ? '<div class="err">' + t + '</div>' : ''; }
 
   // Downsell: if someone starts the form but does not finish (idle 20s, or the cursor leaves the page), offer Reply Lite.
@@ -456,9 +464,9 @@ footer nav { padding: 0; display: flex; gap: 20px; }
   $('lead-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     var cc = $('f-cc').value, raw = $('f-phone').value, name = $('f-name').value.trim();
-    var digits = raw.replace(/\D/g, '').replace(/^0+/, ''), r = RULES[cc];
+    var digits = raw.replace(/\D/g, '').replace(/^0+/, ''), c = COUNTRIES.filter(function (x) { return x[0] === cc; })[0];
     if (!name) return showErr('Please enter your name.');
-    if (digits.length !== r[0] || !r[1].test(digits)) return showErr('Enter a valid WhatsApp number (' + r[0] + ' digits after +' + cc + ').');
+    if (!c || digits.length < c[2] || digits.length > c[3] || (c[4] && !new RegExp(c[4]).test(digits))) return showErr('Enter a valid WhatsApp number for +' + cc + (c ? ' (' + (c[2] === c[3] ? c[2] : c[2] + ' to ' + c[3]) + ' digits).' : '.'));
     if (!$('f-ok').checked) return showErr('Please tick the box so we can message you on WhatsApp.');
     showErr(''); submitted = true; $('downsell').hidden = true; $('f-go').disabled = true; $('f-go').textContent = 'Sending…';
 

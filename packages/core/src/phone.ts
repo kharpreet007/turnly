@@ -1,29 +1,55 @@
-// Per-country national number rules. Mirrors the landing page's country list
-// (the landing file was not available at build time, so this is the initial
-// set; extend CALLING_CODES to match the page's 36 codes).
-export interface CountryRule { cc: string; iso: string; min: number; max: number; leading?: RegExp }
+// Per-country national number rules (digits after the country code, without the leading 0).
+// Lengths are deliberately lenient so real numbers are never rejected. The landing page carries the same
+// table (COUNTRIES in landing/index.html); a test keeps the two in step.
+export interface CountryRule { cc: string; iso: string; name: string; min: number; max: number; leading?: RegExp }
+
+const row = (cc: string, iso: string, name: string, min: number, max: number, leading?: RegExp): CountryRule => ({ cc, iso, name, min, max, leading });
 
 export const CALLING_CODES: CountryRule[] = [
-  { cc: '91', iso: 'IN', min: 10, max: 10, leading: /^[6-9]/ },
-  { cc: '1', iso: 'US/CA', min: 10, max: 10, leading: /^[2-9]/ },
-  { cc: '44', iso: 'GB', min: 10, max: 10, leading: /^[1-9]/ },
-  { cc: '61', iso: 'AU', min: 9, max: 9, leading: /^[2-578]/ },
-  { cc: '65', iso: 'SG', min: 8, max: 8, leading: /^[3689]/ },
-  { cc: '971', iso: 'AE', min: 9, max: 9, leading: /^5/ },
-  { cc: '966', iso: 'SA', min: 9, max: 9, leading: /^5/ },
-  { cc: '974', iso: 'QA', min: 8, max: 8 },
-  { cc: '968', iso: 'OM', min: 8, max: 8 },
-  { cc: '965', iso: 'KW', min: 8, max: 8 },
-  { cc: '973', iso: 'BH', min: 8, max: 8 },
-  { cc: '60', iso: 'MY', min: 9, max: 10 },
-  { cc: '92', iso: 'PK', min: 10, max: 10, leading: /^3/ },
-  { cc: '880', iso: 'BD', min: 10, max: 10, leading: /^1/ },
-  { cc: '94', iso: 'LK', min: 9, max: 9 },
-  { cc: '977', iso: 'NP', min: 10, max: 10 },
-  { cc: '27', iso: 'ZA', min: 9, max: 9 },
-  { cc: '234', iso: 'NG', min: 10, max: 10 },
-  { cc: '254', iso: 'KE', min: 9, max: 9 },
-  { cc: '64', iso: 'NZ', min: 8, max: 10 },
+  row('91', 'IN', 'India', 10, 10, /^[6-9]/),
+  row('971', 'AE', 'UAE', 9, 9, /^5/),
+  row('44', 'GB', 'UK', 9, 10, /^[1-9]/),
+  row('1', 'US', 'US / Canada', 10, 10, /^[2-9]/),
+  row('65', 'SG', 'Singapore', 8, 8, /^[3689]/),
+  row('61', 'AU', 'Australia', 9, 9, /^[2-578]/),
+  row('64', 'NZ', 'New Zealand', 8, 10),
+  row('966', 'SA', 'Saudi Arabia', 9, 9, /^5/),
+  row('974', 'QA', 'Qatar', 8, 8),
+  row('968', 'OM', 'Oman', 8, 8),
+  row('965', 'KW', 'Kuwait', 8, 8),
+  row('973', 'BH', 'Bahrain', 8, 8),
+  row('60', 'MY', 'Malaysia', 9, 10),
+  row('92', 'PK', 'Pakistan', 10, 10, /^3/),
+  row('880', 'BD', 'Bangladesh', 10, 10, /^1/),
+  row('94', 'LK', 'Sri Lanka', 9, 9),
+  row('977', 'NP', 'Nepal', 10, 10),
+  row('27', 'ZA', 'South Africa', 9, 9),
+  row('234', 'NG', 'Nigeria', 10, 10),
+  row('254', 'KE', 'Kenya', 9, 9),
+  row('233', 'GH', 'Ghana', 9, 9),
+  row('255', 'TZ', 'Tanzania', 9, 9),
+  row('256', 'UG', 'Uganda', 9, 9),
+  row('20', 'EG', 'Egypt', 10, 10),
+  row('62', 'ID', 'Indonesia', 9, 12),
+  row('63', 'PH', 'Philippines', 10, 10),
+  row('66', 'TH', 'Thailand', 9, 9),
+  row('84', 'VN', 'Vietnam', 9, 10),
+  row('81', 'JP', 'Japan', 9, 10),
+  row('82', 'KR', 'South Korea', 9, 10),
+  row('86', 'CN', 'China', 11, 11),
+  row('852', 'HK', 'Hong Kong', 8, 8),
+  row('49', 'DE', 'Germany', 10, 11),
+  row('33', 'FR', 'France', 9, 9),
+  row('39', 'IT', 'Italy', 9, 10),
+  row('34', 'ES', 'Spain', 9, 9),
+  row('31', 'NL', 'Netherlands', 9, 9),
+  row('353', 'IE', 'Ireland', 9, 9),
+  row('41', 'CH', 'Switzerland', 9, 9),
+  row('46', 'SE', 'Sweden', 9, 9),
+  row('90', 'TR', 'Turkey', 10, 10),
+  row('55', 'BR', 'Brazil', 10, 11),
+  row('52', 'MX', 'Mexico', 10, 10),
+  row('7', 'RU', 'Russia', 10, 10),
 ];
 
 export class PhoneError extends Error {}
