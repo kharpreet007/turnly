@@ -132,7 +132,7 @@ describe('sync page: send everything again', () => {
   });
 });
 
-import { clearSheetRows, sheetConfig } from '@turnly/core';
+import { clearSheetRows } from '@turnly/core';
 describe('clearing the sheet', () => {
   it('empties row 2 down across all columns, not only the first thirteen', async () => {
     const calls: { url: string; method: string }[] = [];
