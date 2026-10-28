@@ -535,14 +535,18 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
       event_id: 'lead_' + Date.now(), website: $('f-web').value, referrer: document.referrer || undefined };
     var q = new URLSearchParams(location.search); if (q.get('fbclid')) body.fbclid = q.get('fbclid');
 
-    var result = 'ok';
+    var result = 'ok', leadId = '';
     if (API_BASE) {
       try {
         var res = await fetch(API_BASE + '/api/leads', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
         if (res.status === 400) { var j = await res.json().catch(function () { return {}; }); showErr(esc((j.fields && j.fields[0] && j.fields[0].message) || 'Please check your details.')); result = 'invalid'; }
         else if (res.status === 429) result = 'repeat';
         else if (!res.ok) result = 'fallback';
-        else if (window.fbq) window.fbq('track', 'Lead', {}, { eventID: body.event_id });
+        else {
+          var okj = await res.json().catch(function () { return {}; });
+          leadId = okj.lead || '';
+          if (window.fbq) window.fbq('track', 'Lead', {}, { eventID: body.event_id });
+        }
       } catch (err) { result = 'fallback'; }
     } else { await new Promise(function (r2) { setTimeout(r2, 700); }); }
 
@@ -558,7 +562,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     var head = result === 'repeat' ? 'We already have your request, ' : 'Thanks, ';
     // The booking link comes from the server (CALENDLY_URL). Without one, the screen just says we will message.
     var cal = window.TURNLY_CALENDLY_URL || '';
-    var calUrl = cal ? cal + (cal.indexOf('?') > -1 ? '&' : '?') + 'name=' + encodeURIComponent(name) + '&a1=' + encodeURIComponent('+' + cc + digits) : '';
+    var calUrl = cal ? cal + (cal.indexOf('?') > -1 ? '&' : '?') + 'name=' + encodeURIComponent(name) + '&a1=' + encodeURIComponent('+' + cc + digits) + '&utm_source=turnly' + (leadId ? '&utm_content=' + encodeURIComponent(leadId) : '') : '';
     $('form-card').innerHTML = '<div class="ok"><div class="tickBig">✓</div><h3>' + head + first + '</h3>' +
       (calUrl
         ? '<p>Someone from Turnly will message you on WhatsApp at +' + cc + ' ' + esc(raw) + ' to plan your set-up. Please book a time that suits you for the set-up call.</p><a class="btn" href="' + esc(calUrl) + '" target="_blank" rel="noopener">Book your call slot</a>'

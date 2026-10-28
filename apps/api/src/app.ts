@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, whatsAppLink, emailConfig, maskEmail, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, callLabel, whatsAppLink, emailConfig, maskEmail, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -111,7 +111,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
         await queue.send('sheet_lead', { leadId: r.leadId });
         await queue.send('email_lead', { leadId: r.leadId });
       }
-      return { ok: true, duplicate: r.duplicate };
+      return { ok: true, duplicate: r.duplicate, lead: r.leadId };
     } catch (e) {
       if (e instanceof PhoneError) {
         return reply.code(400).send({ error: 'invalid', fields: [{ field: 'phone', message: e.message }] });
@@ -200,6 +200,11 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
            from messages m join contacts c on c.id = m.contact_id where m.direction = 'out' order by m.created_at desc limit 20`);
       const { rows: audits } = await db.query(
         `select created_at, action, detail from audit_log where action in ('send_refused', 'send_failed') order by id desc limit 20`);
+      let calendlyLine = 'NOT SET (add CALENDLY_TOKEN in Railway)';
+      if (process.env.CALENDLY_TOKEN) {
+        const { rows: [ev] } = await db.query(`select name, props, created_at from events where name in ('calendly_sync_error', 'calendly_sync_ok') order by id desc limit 1`);
+        calendlyLine = ev?.name === 'calendly_sync_error' ? `on, last error (${ist(ev.created_at)} IST): ${ev.props.message}` : ev ? `on, last check OK (${ist(ev.created_at)} IST)` : 'on, waiting for the first check';
+      }
       let sheet: string;
       try {
         if (!sheetConfig(process.env)) sheet = 'not set up (add the Google variables in Railway)';
@@ -215,7 +220,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       return reply.type('text/html; charset=utf-8').send(
         `<!doctype html><meta name=viewport content="width=device-width"><title>Status</title><body style="font:15px system-ui;max-width:900px;margin:30px auto;padding:0 16px">
 <h2>Sending status</h2>
-<p><b>Running version:</b> ${esc((process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown').slice(0, 7))} ${esc((process.env.RAILWAY_GIT_COMMIT_MESSAGE ?? '').split('\n')[0].slice(0, 90))}<br><b>Fallback template (TWILIO_FALLBACK_CONTENT_SID):</b> ${process.env.TWILIO_FALLBACK_CONTENT_SID ? 'set, ends …' + esc(process.env.TWILIO_FALLBACK_CONTENT_SID.trim().slice(-4)) : '<b>NOT SET</b>'}</p><p><b>Email alerts:</b> ${esc(emailConfig(process.env) ? 'on, to ' + emailConfig(process.env)!.to.map(maskEmail).join(', ') : 'NOT SET (add RESEND_API_KEY and ALERT_EMAIL in Railway)')}</p><p><b>Google Sheet:</b> ${esc(sheet)}</p><p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
+<p><b>Running version:</b> ${esc((process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown').slice(0, 7))} ${esc((process.env.RAILWAY_GIT_COMMIT_MESSAGE ?? '').split('\n')[0].slice(0, 90))}<br><b>Fallback template (TWILIO_FALLBACK_CONTENT_SID):</b> ${process.env.TWILIO_FALLBACK_CONTENT_SID ? 'set, ends …' + esc(process.env.TWILIO_FALLBACK_CONTENT_SID.trim().slice(-4)) : '<b>NOT SET</b>'}</p><p><b>Calendly bookings:</b> ${esc(calendlyLine)}</p><p><b>Email alerts:</b> ${esc(emailConfig(process.env) ? 'on, to ' + emailConfig(process.env)!.to.map(maskEmail).join(', ') : 'NOT SET (add RESEND_API_KEY and ALERT_EMAIL in Railway)')}</p><p><b>Google Sheet:</b> ${esc(sheet)}</p><p><b>Provider:</b> ${esc(provider)}<br><b>Alerts go to:</b> ${esc((biz?.owner_phone_e164s ?? []).map(mask).join(', ') || 'nobody (OPERATOR_ALERT_PHONE is not set)')}</p>
 <h3>Last messages we tried to send</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>To<th>What<th>Status<th>Error</tr>${rowsHtml || '<tr><td colspan=5>None yet'}</table>
 <h3>Messages we refused or that failed</h3><table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>When (IST)<th>Kind<th>Reason<th>For</tr>${auditHtml || '<tr><td colspan=4>None'}</table>
 <p style="color:#666">Reasons: outside_window = the person has not messaged the number in the last 24 hours; template_not_approved = template not approved yet; no_consent / opted_out = we must not message them; no_number = no WhatsApp number set up.</p>`);
@@ -282,9 +287,9 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       const q = req.query as Record<string, string>;
       const rows = await listLeads(db, { status: q.status });
       if (q.format !== 'html') return rows;
-      const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td><td>${esc(r.flow_status === 'none' ? '' : r.flow_status)}${r.answers?.interest ? '<br>' + esc([r.answers.interest, r.answers.detail, r.answers.business, r.answers.best_time].filter(Boolean).join(' / ')) : ''}</td><td><a href="${esc(whatsAppLink(r.phone_e164, r.name))}" target="_blank">Reply on WhatsApp</a></td><td><a href="/admin/delete-contact?phone=${encodeURIComponent(r.phone_e164)}&token=${encodeURIComponent(q.token ?? '')}">Delete</a></td></tr>`).join('');
+      const tr = rows.map((r: any) => `<tr><td>${esc(r.created_at.toISOString?.() ?? r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.phone_e164)}</td><td>${esc(r.business_type)}</td><td>${esc(r.ad_source)}</td><td>${esc(r.status)}</td><td>${r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no'}</td><td>${esc(r.welcome_status)}</td><td>${esc(r.flow_status === 'none' ? '' : r.flow_status)}${r.answers?.interest ? '<br>' + esc([r.answers.interest, r.answers.detail, r.answers.business, r.answers.best_time].filter(Boolean).join(' / ')) : ''}</td><td>${esc(callLabel(r))}</td><td><a href="${esc(whatsAppLink({ id: r.id, name: r.name, phone: r.phone_e164, callStatus: r.call_status, callStart: r.call_start_at, callTz: r.call_tz }))}" target="_blank">${r.call_status === 'booked' ? 'Confirm call on WhatsApp' : 'Send booking link'}</a></td><td><a href="/admin/delete-contact?phone=${encodeURIComponent(r.phone_e164)}&token=${encodeURIComponent(q.token ?? '')}">Delete</a></td></tr>`).join('');
       return reply.type('text/html').send(
-        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a> &nbsp;|&nbsp; <a href="/admin/reset-leads?token=${encodeURIComponent(q.token ?? '')}">Reset test data</a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome<th>Chat<th><th></tr>${tr}</table>`);
+        `<!doctype html><meta name=viewport content="width=device-width"><title>Leads</title><p><a href="/admin/leads.csv?token=${encodeURIComponent(q.token ?? '')}"><b>Download as Excel (CSV)</b></a> &nbsp;|&nbsp; <a href="/admin/sheet/sync?token=${encodeURIComponent(q.token ?? '')}"><b>Send all leads to Google Sheet</b></a> &nbsp;|&nbsp; <a href="/admin/status?token=${encodeURIComponent(q.token ?? '')}"><b>Sending status</b></a> &nbsp;|&nbsp; <a href="/admin/reset-leads?token=${encodeURIComponent(q.token ?? '')}">Reset test data</a></p><table border=1 cellpadding=6><tr><th>When<th>Name<th>WhatsApp<th>Type<th>Source<th>Status<th>Opt-in<th>Welcome<th>Chat<th>Call<th><th></tr>${tr}</table>`);
     });
 
     admin.patch('/admin/leads/:id', async (req, reply) => {

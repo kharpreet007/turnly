@@ -95,10 +95,10 @@ export async function clearSheetRows(cfg: SheetConfig, f: typeof fetch = fetch):
   }
 }
 
-export const ANSWER_HEADERS = ['Interest', 'Detail', 'Business (chat)', 'Best time to call'];
+export const ANSWER_HEADERS = ['Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)'];
 
 /**
- * Writes the chat answers into columns N to Q of the lead's row (found by the Lead ID in column K).
+ * Writes the chat answers and call booking into columns N to S of the lead's row (found by the Lead ID in column K).
  * Returns false when the row is not in the sheet yet.
  */
 export async function updateSheetAnswers(cfg: SheetConfig, leadId: string, values: string[], f: typeof fetch = fetch): Promise<boolean> {
@@ -116,13 +116,14 @@ export async function updateSheetAnswers(cfg: SheetConfig, leadId: string, value
   const idx = ids.findIndex((r) => r[0] === leadId);
   if (idx < 0) return false;
   const row = idx + 1;
-  const head = await f(`${base}/${encodeURIComponent(`${tab}!N1`)}`, { headers: auth });
+  const head = await f(`${base}/${encodeURIComponent(`${tab}!N1:S1`)}`, { headers: auth });
   if (!head.ok) await fail('read', head);
-  if (!((await head.json()) as { values?: string[][] }).values?.length) {
-    const put = await f(`${base}/${encodeURIComponent(`${tab}!N1:Q1`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [ANSWER_HEADERS] }) });
+  const have = ((await head.json()) as { values?: string[][] }).values?.[0] ?? [];
+  if (have.length < ANSWER_HEADERS.length) {
+    const put = await f(`${base}/${encodeURIComponent(`${tab}!N1:S1`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [ANSWER_HEADERS] }) });
     if (!put.ok) await fail('header write', put);
   }
-  const res = await f(`${base}/${encodeURIComponent(`${tab}!N${row}:Q${row}`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [values] }) });
+  const res = await f(`${base}/${encodeURIComponent(`${tab}!N${row}:S${row}`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [values] }) });
   if (!res.ok) await fail('answers write', res);
   return true;
 }

@@ -44,7 +44,8 @@ export async function emailNewLeads(deps: EmailDeps): Promise<{ sent: number; er
         subject: `New Turnly lead: ${l.name} (${l.business_type})`,
         text: [
           `${l.name} asked for a demo.`, '',
-          `WhatsApp: ${l.phone_e164}`, `Tap to reply on WhatsApp (message is typed for you, just press Send):`, whatsAppLink(l.phone_e164, l.name, deps.env ?? process.env),
+          `WhatsApp: ${l.phone_e164}`, `Tap to reply on WhatsApp (message is typed for you, just press Send):`, whatsAppLink({ id: l.id, name: l.name, phone: l.phone_e164 }, deps.env ?? process.env),
+          (deps.env ?? process.env).CALENDLY_TOKEN ? 'They have not booked a call yet. You will get another email when they do.' : '',
           `Business type: ${l.business_type}`, `Source: ${l.ad_source ?? 'direct'}`,
           wants ? `Plans: ${wants}` : '', l.est_monthly_loss ? `Estimated monthly loss: Rs ${l.est_monthly_loss}` : '',
           `Time (IST): ${ist(l.created_at)}`, `Agreed to be messaged on WhatsApp: ${ist(l.consent_at)}`,

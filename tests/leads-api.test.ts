@@ -24,7 +24,7 @@ describe('POST /api/leads', () => {
     const app = await h.build();
     const res = await post(app, validLead());
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true, duplicate: false });
+    expect(res.json()).toMatchObject({ ok: true, duplicate: false, lead: expect.stringMatching(/^[0-9a-f-]{36}$/) });
 
     const toLead = h.wa.sent.filter((s) => s.to === '+919876543210');
     expect(toLead).toHaveLength(1);
@@ -65,7 +65,7 @@ describe('POST /api/leads', () => {
     const app = await h.build();
     await post(app, validLead());
     const second = await post(app, validLead({ name: 'Asha K', phone: '9876543210' }));
-    expect(second.json()).toEqual({ ok: true, duplicate: true });
+    expect(second.json()).toMatchObject({ ok: true, duplicate: true, lead: expect.any(String) });
     expect((await db.query('select 1 from leads')).rowCount).toBe(1);
     expect(h.wa.sent.filter((s) => s.to === '+919876543210')).toHaveLength(1);
     const { rows: [l] } = await db.query('select name, submissions from leads');
@@ -276,7 +276,7 @@ describe('delete contact', () => {
     expect((await db.query(`select 1 from audit_log where action = 'delete_contact'`)).rowCount).toBe(1);
 
     const again = await post(app, validLead());
-    expect(again.json()).toEqual({ ok: true, duplicate: false });
+    expect(again.json()).toMatchObject({ ok: true, duplicate: false });
   });
 
   it('refuses the operator number and needs the token', async () => {
@@ -316,7 +316,7 @@ describe('reset test data', () => {
     expect((await db.query('select 1 from leads')).rowCount).toBe(0);
     expect((await db.query(`select 1 from contacts where phone_e164 in ('+919876543210', '+919876543211')`)).rowCount).toBe(0);
     expect((await db.query(`select 1 from contacts where phone_e164 = '+919000000001'`)).rowCount).toBe(1);
-    expect((await post(app, validLead())).json()).toEqual({ ok: true, duplicate: false });
+    expect((await post(app, validLead())).json()).toMatchObject({ ok: true, duplicate: false });
   });
 
   it('needs the token', async () => {

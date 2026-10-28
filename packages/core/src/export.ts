@@ -7,11 +7,12 @@ export interface LeadExportRow {
   welcome_status: string | null; submissions: number; utm: Record<string, string>; fbclid: string | null;
   referrer: string | null; consent_text: string; consent_at: Date; notes: string | null;
   flow_status: string; answers: Record<string, string>;
+  id: string; call_status: string; call_start_at: Date | null; call_tz: string | null;
 }
 
 export async function exportLeads(db: Db): Promise<LeadExportRow[]> {
   const { rows } = await db.query(
-    `select l.created_at, l.name, l.phone_e164, l.business_type, l.ad_source, l.wants, l.est_monthly_loss,
+    `select l.id, l.call_status, l.call_start_at, l.call_tz, l.created_at, l.name, l.phone_e164, l.business_type, l.ad_source, l.wants, l.est_monthly_loss,
             l.status, c.opt_in, c.opted_out_at, l.submissions, l.utm, l.fbclid, l.referrer,
             l.consent_text, l.consent_at, l.notes, l.flow_status, l.answers,
             (select status from messages m where m.contact_id = l.contact_id and m.direction = 'out'
@@ -34,7 +35,7 @@ const cell = (s: string) => `"${s.replace(/"/g, '""')}"`;
 export function leadsToCsv(rows: LeadExportRow[]): string {
   const head = ['When (IST)', 'Name', 'WhatsApp', 'Business type', 'Source', 'Plans wanted', 'Est. monthly loss (INR)',
     'Status', 'Opt-in', 'Welcome message', 'Submissions', 'UTM', 'Referrer', 'Consent given at (IST)', 'Consent text', 'Notes',
-    'Chat status', 'Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Reply on WhatsApp'];
+    'Chat status', 'Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)', 'Reply on WhatsApp'];
   const lines = rows.map((r) => {
     const wants = Array.isArray(r.wants) ? r.wants.join('; ') : '';
     const utm = Object.entries(r.utm ?? {}).map(([k, v]) => `${k}=${v}`).join('; ');
@@ -45,7 +46,9 @@ export function leadsToCsv(rows: LeadExportRow[]): string {
       r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no', cell(safe(r.welcome_status)), String(r.submissions),
       cell(safe(utm)), cell(safe(r.referrer)), ist(r.consent_at), cell(safe(r.consent_text)), cell(safe(r.notes)),
       cell(safe(r.flow_status === 'none' ? '' : r.flow_status)), cell(safe(r.answers?.interest)), cell(safe(r.answers?.detail)),
-      cell(safe(r.answers?.business)), cell(safe(r.answers?.best_time)), cell(whatsAppLink(r.phone_e164, r.name)),
+      cell(safe(r.answers?.business)), cell(safe(r.answers?.best_time)), r.call_status === 'booked' ? 'Booked' : r.call_status === 'canceled' ? 'Canceled' : 'Not booked',
+      r.call_start_at ? cell(ist(r.call_start_at)) : '',
+      cell(whatsAppLink({ id: r.id, name: r.name, phone: r.phone_e164, callStatus: r.call_status, callStart: r.call_start_at, callTz: r.call_tz })),
     ];
     return cols.map((c, i) => (i === 0 || i === 13 ? cell(c) : c)).join(',');
   });

@@ -150,10 +150,10 @@ describe('chat answers in the Google Sheet', () => {
     await db.query('update leads set sheet_synced_at = now()');
     const g = fakeSheet(lead.leadId, 4);
     expect(await syncLeadAnswersToSheet({ db, env, fetchImpl: g.impl })).toEqual({ updated: 1 });
-    const header = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N1%3AQ1'))!;
-    expect(header.body.values[0]).toEqual(['Interest', 'Detail', 'Business (chat)', 'Best time to call']);
-    const row = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N4%3AQ4'))!;
-    expect(row.body.values[0]).toEqual(['packages', 'Return', 'other', 'Afternoon']);
+    const header = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N1%3AS1'))!;
+    expect(header.body.values[0]).toEqual(['Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)']);
+    const row = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N4%3AS4'))!;
+    expect(row.body.values[0]).toEqual(['packages', 'Return', 'other', 'Afternoon', 'Not booked', '']);
     expect((await db.query('select answers_dirty from leads')).rows[0].answers_dirty).toBe(false);
     expect(await syncLeadAnswersToSheet({ db, env, fetchImpl: g.impl })).toEqual({ updated: 0 });
   });

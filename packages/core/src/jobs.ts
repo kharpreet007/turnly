@@ -131,13 +131,15 @@ export async function syncLeadAnswersToSheet(deps: SheetDeps): Promise<{ updated
   try { cfg = sheetConfig(deps.env ?? process.env); } catch (e) { return { updated: 0, error: (e as Error).message }; }
   if (!cfg) return { updated: 0 };
   const { rows } = await deps.db.query(
-    `select id, answers from leads where answers_dirty and sheet_synced_at is not null order by created_at asc limit 20`);
+    `select id, answers, call_status, call_start_at from leads where answers_dirty and sheet_synced_at is not null order by created_at asc limit 20`);
   let updated = 0;
   for (const l of rows) {
     const a = (l.answers ?? {}) as Record<string, string>;
     try {
       const done = await updateSheetAnswers(cfg, l.id, [
         a.interest ?? '', a.detail ?? '', a.business ?? '', a.best_time ?? '',
+        l.call_status === 'booked' ? 'Booked' : l.call_status === 'canceled' ? 'Canceled' : 'Not booked',
+        l.call_start_at ? ist(new Date(l.call_start_at)) : '',
       ], deps.fetchImpl ?? fetch);
       if (done) { await deps.db.query('update leads set answers_dirty = false where id = $1', [l.id]); updated++; }
     } catch (e) {

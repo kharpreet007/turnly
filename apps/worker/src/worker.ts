@@ -1,6 +1,6 @@
 import {
   createCloudClient, createDb, createTwilioClient, twilioConfig, waitForDb, createFakeClient, handleAlertOperator, handleCapi, handleSendWelcome,
-  handleSheetLead, handleWebhookJob, emailNewLeads, syncPendingLeadsToSheet, syncLeadAnswersToSheet, alertFlowFinished, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
+  handleSheetLead, handleWebhookJob, emailNewLeads, syncCalendlyBookings, notifyBookedCalls, syncPendingLeadsToSheet, syncLeadAnswersToSheet, alertFlowFinished, migrate, seedSelf, startBoss, type JobDeps, type WhatsAppClient,
 } from '@turnly/core';
 
 const url = process.env.DATABASE_URL!;
@@ -64,6 +64,27 @@ const sheetTick = async () => {
 };
 // Safety net for lead chats: alert you about any finished chat whose alert did not go out the first time.
 setInterval(() => { alertFlowFinished(deps).catch((e) => console.warn('[flow] alert failed:', (e as Error).message)); }, 30_000);
+// Calendly: attach bookings to leads, then email about any new, moved or canceled call.
+const calendlyTick = async () => {
+  try {
+    const r = await syncCalendlyBookings({ db, env: process.env });
+    if (r.error) {
+      console.warn('[calendly] sync failed:', r.error);
+      await db.query(
+        `insert into events (name, props) select 'calendly_sync_error', $1::jsonb
+          where not exists (select 1 from events where name = 'calendly_sync_error' and created_at > now() - interval '10 minutes' and props->>'message' = $2)`,
+        [JSON.stringify({ message: r.error }), r.error]);
+    } else if (r.configured) {
+      await db.query(`insert into events (name, props) select 'calendly_sync_ok', $1::jsonb where not exists (select 1 from events where name = 'calendly_sync_ok' and created_at > now() - interval '10 minutes')`, [JSON.stringify({ events: r.events, matched: r.matched })]);
+      const n = await notifyBookedCalls({ db, env: process.env });
+      if (n > 0) console.log(`[calendly] emailed about ${n} call change(s)`);
+    }
+  } catch (e) {
+    console.warn('[calendly] sync crashed:', (e as Error).message);
+  }
+};
+setInterval(calendlyTick, 60_000);
+setTimeout(calendlyTick, 20_000);
 setInterval(sheetTick, 60_000);
 setTimeout(sheetTick, 10_000);
 console.log('worker ready');
