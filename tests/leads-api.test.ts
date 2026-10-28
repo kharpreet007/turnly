@@ -183,7 +183,8 @@ describe('landing page', () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.body).toContain('window.TURNLY_API_BASE = location.origin');
-    expect(res.body).toContain('Get this set up for my salon');
+    expect(res.body).toContain('Get my set-up plan');
+    expect(res.body).toContain('window.TURNLY_CALENDLY_URL = ""');
   });
 });
 

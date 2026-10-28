@@ -34,7 +34,7 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
     return reply.type('text/html; charset=utf-8').send(
       '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
       '<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>' +
-      '<script>window.TURNLY_API_BASE = location.origin;</script>' + page);
+      `<script>window.TURNLY_API_BASE = location.origin; window.TURNLY_CALENDLY_URL = ${JSON.stringify(process.env.CALENDLY_URL ?? '').replace(/</g, '\\u003c')};</script>` + page);
   });
 
   app.get('/healthz', async () => {
