@@ -131,3 +131,18 @@ describe('sync page: send everything again', () => {
     expect((await db.query('select sheet_synced_at from leads')).rows[0].sheet_synced_at).toBeNull();
   });
 });
+
+import { clearSheetRows, sheetConfig } from '@turnly/core';
+describe('clearing the sheet', () => {
+  it('empties row 2 down across all columns, not only the first thirteen', async () => {
+    const calls: { url: string; method: string }[] = [];
+    const impl = (async (url: string, init: any = {}) => {
+      calls.push({ url, method: init.method ?? 'GET' });
+      return url.startsWith('https://oauth2') ? new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 }) : new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    await clearSheetRows(sheetConfig(env)!, impl);
+    const clear = calls.find((c) => c.url.includes(':clear'))!;
+    expect(clear.method).toBe('POST');
+    expect(decodeURIComponent(clear.url)).toContain("'Leads'!A2:Z:clear");
+  });
+});

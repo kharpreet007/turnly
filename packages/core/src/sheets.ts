@@ -82,11 +82,11 @@ export async function sheetInfo(cfg: SheetConfig, f: typeof fetch = fetch): Prom
   return { title: j.properties?.title ?? '', tabs: (j.sheets ?? []).map((x) => x.properties?.title ?? '') };
 }
 
-/** Empties the data rows (row 2 down) of the tab, keeping the header row. */
+/** Empties every data cell from row 2 down (all columns A to Z, including chat answers, call status and the WhatsApp link), keeping the header row. */
 export async function clearSheetRows(cfg: SheetConfig, f: typeof fetch = fetch): Promise<void> {
   const token = await accessToken(cfg, f);
   const tab = `'${cfg.tab.replace(/'/g, "''")}'`;
-  const res = await f(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}/values/${encodeURIComponent(`${tab}!A2:M`)}:clear`, {
+  const res = await f(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}/values/${encodeURIComponent(`${tab}!A2:Z`)}:clear`, {
     method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}',
   });
   if (!res.ok) {
