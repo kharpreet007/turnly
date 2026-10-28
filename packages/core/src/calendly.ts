@@ -15,7 +15,10 @@ async function get(token: string, f: typeof fetch, pathOrUrl: string): Promise<a
     headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000),
   });
   const json = (await res.json().catch(() => ({}))) as any;
-  if (!res.ok) throw new Error(`Calendly ${res.status}: ${json.message ?? json.title ?? 'request failed'}`);
+  if (!res.ok) {
+    const scopes = [json.required_scopes, ...((json.details ?? []) as any[]).map((d) => d?.required_scopes)].flat().filter(Boolean);
+    throw new Error(`Calendly ${res.status}: ${json.message ?? json.title ?? 'request failed'}` + (scopes.length ? ` (needs: ${[...new Set(scopes)].join(', ')})` : ''));
+  }
   return json;
 }
 

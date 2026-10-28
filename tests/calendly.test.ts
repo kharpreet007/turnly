@@ -89,6 +89,15 @@ describe('Calendly bookings', () => {
   });
 });
 
+describe('Calendly permission errors', () => {
+  it('names the scopes the token is missing', async () => {
+    const noScope = (async () => new Response(JSON.stringify({ title: 'Permission Denied', message: "This operation requires the scopes listed in the 'required_scopes' array.", details: [{ required_scopes: ['scheduled_events:read'] }], required_scopes: ['scheduled_events:read'] }), { status: 403 })) as unknown as typeof fetch;
+    const r = await syncCalendlyBookings({ db, env: { CALENDLY_TOKEN: 'scope_token' }, fetchImpl: noScope });
+    expect(r.error).toContain('Calendly 403');
+    expect(r.error).toContain('(needs: scheduled_events:read)');
+  });
+});
+
 describe('call emails', () => {
   it('emails once when booked, with the confirm message typed for WhatsApp', async () => {
     const l = await newLead();
