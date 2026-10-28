@@ -1,5 +1,6 @@
 import type { Db } from './db.ts';
 import { ist } from './export.ts';
+import { whatsAppLink } from './links.ts';
 
 /** Email through Resend (https://resend.com). Needs RESEND_API_KEY and ALERT_EMAIL; EMAIL_FROM is optional. */
 export interface EmailConfig { apiKey: string; to: string[]; from: string }
@@ -43,7 +44,7 @@ export async function emailNewLeads(deps: EmailDeps): Promise<{ sent: number; er
         subject: `New Turnly lead: ${l.name} (${l.business_type})`,
         text: [
           `${l.name} asked for a demo.`, '',
-          `WhatsApp: ${l.phone_e164}`, `Message them: https://wa.me/${l.phone_e164.replace(/\D/g, '')}`,
+          `WhatsApp: ${l.phone_e164}`, `Tap to reply on WhatsApp (message is typed for you, just press Send):`, whatsAppLink(l.phone_e164, l.name, deps.env ?? process.env),
           `Business type: ${l.business_type}`, `Source: ${l.ad_source ?? 'direct'}`,
           wants ? `Plans: ${wants}` : '', l.est_monthly_loss ? `Estimated monthly loss: Rs ${l.est_monthly_loss}` : '',
           `Time (IST): ${ist(l.created_at)}`, `Agreed to be messaged on WhatsApp: ${ist(l.consent_at)}`,

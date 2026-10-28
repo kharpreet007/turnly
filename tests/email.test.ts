@@ -39,7 +39,7 @@ describe('email alerts', () => {
     expect(await emailNewLeads({ db, env, fetchImpl: r.impl })).toEqual({ sent: 1 });
     expect(r.calls[0].body.subject).toBe('New Turnly lead: Asha (salon)');
     expect(r.calls[0].body.text).toContain('WhatsApp: +919876543210');
-    expect(r.calls[0].body.text).toContain('https://wa.me/919876543210');
+    expect(r.calls[0].body.text).toContain('https://wa.me/919876543210?text=');
     expect(r.calls[0].body.text).toContain('Plans: Reply ₹3,999');
     expect(await emailNewLeads({ db, env, fetchImpl: r.impl })).toEqual({ sent: 0 });
     expect(r.calls).toHaveLength(1);

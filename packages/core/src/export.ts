@@ -1,4 +1,5 @@
 import type { Db } from './db.ts';
+import { whatsAppLink } from './links.ts';
 
 export interface LeadExportRow {
   created_at: Date; name: string; phone_e164: string; business_type: string; ad_source: string | null;
@@ -33,7 +34,7 @@ const cell = (s: string) => `"${s.replace(/"/g, '""')}"`;
 export function leadsToCsv(rows: LeadExportRow[]): string {
   const head = ['When (IST)', 'Name', 'WhatsApp', 'Business type', 'Source', 'Plans wanted', 'Est. monthly loss (INR)',
     'Status', 'Opt-in', 'Welcome message', 'Submissions', 'UTM', 'Referrer', 'Consent given at (IST)', 'Consent text', 'Notes',
-    'Chat status', 'Interest', 'Detail', 'Business (chat)', 'Best time to call'];
+    'Chat status', 'Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Reply on WhatsApp'];
   const lines = rows.map((r) => {
     const wants = Array.isArray(r.wants) ? r.wants.join('; ') : '';
     const utm = Object.entries(r.utm ?? {}).map(([k, v]) => `${k}=${v}`).join('; ');
@@ -44,7 +45,7 @@ export function leadsToCsv(rows: LeadExportRow[]): string {
       r.opt_in ? 'yes' : r.opted_out_at ? 'opted out' : 'no', cell(safe(r.welcome_status)), String(r.submissions),
       cell(safe(utm)), cell(safe(r.referrer)), ist(r.consent_at), cell(safe(r.consent_text)), cell(safe(r.notes)),
       cell(safe(r.flow_status === 'none' ? '' : r.flow_status)), cell(safe(r.answers?.interest)), cell(safe(r.answers?.detail)),
-      cell(safe(r.answers?.business)), cell(safe(r.answers?.best_time)),
+      cell(safe(r.answers?.business)), cell(safe(r.answers?.best_time)), cell(whatsAppLink(r.phone_e164, r.name)),
     ];
     return cols.map((c, i) => (i === 0 || i === 13 ? cell(c) : c)).join(',');
   });
