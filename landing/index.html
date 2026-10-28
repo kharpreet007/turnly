@@ -561,7 +561,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     var calUrl = cal ? cal + (cal.indexOf('?') > -1 ? '&' : '?') + 'name=' + encodeURIComponent(name) + '&a1=' + encodeURIComponent('+' + cc + digits) : '';
     $('form-card').innerHTML = '<div class="ok"><div class="tickBig">✓</div><h3>' + head + first + '</h3>' +
       (calUrl
-        ? '<p>We have your details. Pick a time for your call, and someone from Turnly will message you on WhatsApp at +' + cc + ' ' + esc(raw) + ' to plan your set-up.</p><a class="btn" href="' + esc(calUrl) + '" target="_blank" rel="noopener">Pick a time for your call</a>'
+        ? '<p>Someone from Turnly will message you on WhatsApp at +' + cc + ' ' + esc(raw) + ' to plan your set-up. Please book a time that suits you for the set-up call.</p><a class="btn" href="' + esc(calUrl) + '" target="_blank" rel="noopener">Book your call slot</a>'
         : '<p>We have your details. Someone from Turnly will message you on WhatsApp at +' + cc + ' ' + esc(raw) + ' to plan your set-up.</p>') +
       (API_BASE ? '' : '<div class="preview-note">Preview mode: nothing was sent or stored.</div>') + '</div>';
   });
