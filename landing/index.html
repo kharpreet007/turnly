@@ -528,12 +528,11 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   // In the preview (no server) they open WhatsApp's own contact chooser so you can see the message.
   var WA = (window.TURNLY_WHATSAPP || '').replace(/\D/g, '');
   var waOn = !!WA || !API_BASE;
-  function an(w) { return (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w; }
-  function waHref(p) {
-    var m = 'Hi Turnly, I run ' + an(WORD[cur]) + ' and ' + (p ? 'I\'m interested in the ' + p + ' package.' : 'I\'d like to know more about your website, email and WhatsApp set-up.');
-    return 'https://wa.me/' + WA + '?text=' + encodeURIComponent(m);
+  // One plain message for everyone. The auto-reply on WhatsApp asks for their name and business.
+  function waHref() {
+    return 'https://wa.me/' + WA + '?text=' + encodeURIComponent('Hi Turnly, I\'d like to know more about your website, email and WhatsApp set-up.');
   }
-  function refreshWa() { document.querySelectorAll('.wa').forEach(function (a) { a.hidden = !waOn; a.href = waHref(a.getAttribute('data-wa') || pkg); }); }
+  function refreshWa() { document.querySelectorAll('.wa').forEach(function (a) { a.hidden = !waOn; a.href = waHref(); }); }
   var pkg = '';
   function setPkg(p) { pkg = p; refreshWa(); $('pkgPill').classList.toggle('on', !!p); $('pkgText').textContent = p ? 'Interested in: ' + p : ''; }
   document.querySelectorAll('[data-pkg]').forEach(function (b) { b.addEventListener('click', function () { setPkg(b.getAttribute('data-pkg')); $('start').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); setTimeout(function () { $('f-name').focus({ preventScroll: true }); }, reduce ? 0 : 500); }); });
