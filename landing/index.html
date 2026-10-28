@@ -224,7 +224,7 @@ form { display: flex; flex-direction: column; gap: 14px; }
 .ok p { color: var(--muted); max-width: 36ch; }
 .fallback { display: flex; flex-direction: column; gap: 10px; text-align: left; width: 100%; }
 .fallback textarea { font: 13px var(--f-mono); background: #0a1210; color: var(--ink); border: 1px solid #1f3a31; border-radius: 12px; padding: 12px; width: 100%; min-height: 110px; }
-.lc { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.ask { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .cb { max-width: 88%; padding: 11px 15px; border-radius: 18px; font-size: 15px; line-height: 1.45; animation: pop .35s cubic-bezier(.3,1.4,.5,1); }
 .cb.bot { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
 .cb.me { align-self: flex-end; background: var(--mint); color: #06241d; font-weight: 600; border-bottom-right-radius: 6px; }
@@ -408,7 +408,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
       <h3>Get your set-up plan</h3>
       <p class="sub">Takes 20 seconds. No payment, no app.</p>
       <div class="pkgPill" id="pkgPill"><span id="pkgText"></span><button type="button" id="pkgClear" aria-label="Remove package choice">×</button></div>
-      <div class="lc" id="lchat" aria-live="polite"></div>
+      <div class="ask" id="ask" aria-live="polite"></div>
       <form id="lead-form" novalidate hidden>
         <label class="fld" for="f-biz" hidden>Business type
           <select id="f-biz"><option value="salon">Salon</option><option value="clinic">Clinic</option><option value="gym">Gym</option><option value="coaching">Coaching</option><option value="restaurant">Restaurant</option><option value="retail">Retail</option><option value="property">Property</option><option value="other">Other</option></select>
@@ -567,7 +567,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   /* ---------- the chat that fills the form, one question at a time ---------- */
   var BIZ = [['salon', 'Salon'], ['clinic', 'Clinic'], ['gym', 'Gym'], ['coaching', 'Coaching'], ['restaurant', 'Restaurant'], ['retail', 'Shop'], ['property', 'Real estate'], ['other', 'Other']];
   var SVC = ['Website', 'Business email', 'WhatsApp', 'All of them'];
-  var askEl = $('lchat'), cname = '';
+  var askEl = $('ask'), cname = '';
   function cbub(who, t) { var d = document.createElement('div'); d.className = 'cb ' + who; d.textContent = t; askEl.appendChild(d); return d; }
   function ctl(node) { var old = $('cctl'); if (old) old.remove(); node.id = 'cctl'; askEl.appendChild(node); }
   function botSays(t, then) {
