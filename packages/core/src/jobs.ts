@@ -6,6 +6,7 @@ import { ist } from './export.ts';
 import { startLeadFlow } from './leadFlow.ts';
 import { appendSheetRow, sheetConfig, updateSheetAnswers } from './sheets.ts';
 import { notifyOperators } from './operatorAlerts.ts';
+import { whatsAppLink } from './links.ts';
 
 export interface JobDeps extends SendDeps {
   fetchImpl?: typeof fetch;
@@ -97,7 +98,7 @@ export async function handleSheetLead(deps: SheetDeps, data: { leadId: string })
     Array.isArray(l.wants) ? l.wants.join('; ') : '', String(l.est_monthly_loss ?? ''),
     l.opt_in ? 'yes' : 'no', l.consent_text, utm, l.id, 'new', '',
   ], deps.fetchImpl ?? fetch);
-  await deps.db.query('update leads set sheet_synced_at = now() where id = $1', [l.id]);
+  await deps.db.query('update leads set sheet_synced_at = now(), answers_dirty = true where id = $1', [l.id]);
   return { skipped: false, range };
 }
 
@@ -131,7 +132,7 @@ export async function syncLeadAnswersToSheet(deps: SheetDeps): Promise<{ updated
   try { cfg = sheetConfig(deps.env ?? process.env); } catch (e) { return { updated: 0, error: (e as Error).message }; }
   if (!cfg) return { updated: 0 };
   const { rows } = await deps.db.query(
-    `select id, answers, call_status, call_start_at from leads where answers_dirty and sheet_synced_at is not null order by created_at asc limit 20`);
+    `select id, name, phone_e164, answers, call_status, call_start_at, call_tz from leads where answers_dirty and sheet_synced_at is not null order by created_at asc limit 20`);
   let updated = 0;
   for (const l of rows) {
     const a = (l.answers ?? {}) as Record<string, string>;
@@ -140,7 +141,8 @@ export async function syncLeadAnswersToSheet(deps: SheetDeps): Promise<{ updated
         a.interest ?? '', a.detail ?? '', a.business ?? '', a.best_time ?? '',
         l.call_status === 'booked' ? 'Booked' : l.call_status === 'canceled' ? 'Canceled' : 'Not booked',
         l.call_start_at ? ist(new Date(l.call_start_at)) : '',
-      ], deps.fetchImpl ?? fetch);
+      ], deps.fetchImpl ?? fetch,
+        whatsAppLink({ id: l.id, name: l.name, phone: l.phone_e164, callStatus: l.call_status, callStart: l.call_start_at, callTz: l.call_tz }, deps.env ?? process.env));
       if (done) { await deps.db.query('update leads set answers_dirty = false where id = $1', [l.id]); updated++; }
     } catch (e) {
       return { updated, error: (e as Error).message };

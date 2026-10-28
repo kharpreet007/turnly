@@ -150,10 +150,12 @@ describe('chat answers in the Google Sheet', () => {
     await db.query('update leads set sheet_synced_at = now()');
     const g = fakeSheet(lead.leadId, 4);
     expect(await syncLeadAnswersToSheet({ db, env, fetchImpl: g.impl })).toEqual({ updated: 1 });
-    const header = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N1%3AS1'))!;
-    expect(header.body.values[0]).toEqual(['Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)']);
+    const header = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N1%3AT1'))!;
+    expect(header.body.values[0]).toEqual(['Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)', 'Reply on WhatsApp']);
     const row = g.calls.find((c) => c.method === 'PUT' && c.url.includes('N4%3AS4'))!;
     expect(row.body.values[0]).toEqual(['packages', 'Return', 'other', 'Afternoon', 'Not booked', '']);
+    const linkCell = g.calls.find((c) => c.method === 'PUT' && c.url.includes('T4') && c.url.includes('USER_ENTERED'))!;
+    expect(linkCell.body.values[0][0]).toMatch(/^=HYPERLINK\("https:\/\/wa\.me\/919876543210\?text=[\w%.~-]+","Reply on WhatsApp"\)$/);
     expect((await db.query('select answers_dirty from leads')).rows[0].answers_dirty).toBe(false);
     expect(await syncLeadAnswersToSheet({ db, env, fetchImpl: g.impl })).toEqual({ updated: 0 });
   });
@@ -165,5 +167,29 @@ describe('chat answers in the Google Sheet', () => {
     const g = fakeSheet('some-other-id');
     expect(await syncLeadAnswersToSheet({ db, env, fetchImpl: g.impl })).toEqual({ updated: 0 });
     expect((await db.query('select answers_dirty from leads')).rows[0].answers_dirty).toBe(true);
+  });
+});
+
+describe('WhatsApp link cell in the sheet', () => {
+  it('still writes a link for names with quotes, brackets and apostrophes', async () => {
+    const h = makeHarness();
+    const lead = await createLead(db, leadInput.parse(validLead({ name: `Asha "Ash" O'Neil (2)!` })));
+    await db.query('update leads set sheet_synced_at = now(), answers_dirty = true');
+    const calls: any[] = [];
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+    const env = { GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: 'b@p.iam.gserviceaccount.com', private_key: privateKey }), GOOGLE_SHEET_ID: 'S1' };
+    const impl = (async (url: string, init: any = {}) => {
+      calls.push({ url, method: init.method ?? 'GET', body: typeof init.body === 'string' && init.body.startsWith('{') ? JSON.parse(init.body) : undefined });
+      const json = (o: object) => new Response(JSON.stringify(o), { status: 200 });
+      if (url.startsWith('https://oauth2')) return json({ access_token: 't', expires_in: 3600 });
+      if (url.includes('K%3AK')) return json({ values: [['Lead ID'], [lead.leadId]] });
+      return json({});
+    }) as unknown as typeof fetch;
+    expect(await syncLeadAnswersToSheet({ db, env, fetchImpl: impl })).toEqual({ updated: 1 });
+    const cell = calls.find((c) => c.method === 'PUT' && c.url.includes('USER_ENTERED'));
+    const formula: string = cell.body.values[0][0];
+    expect(formula.startsWith('=HYPERLINK("https://wa.me/919876543210?text=')).toBe(true);
+    expect(formula.match(/"/g)).toHaveLength(4); // only the formula's own quotes: the name's quote marks are encoded
+    expect(h).toBeDefined();
   });
 });

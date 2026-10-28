@@ -95,13 +95,13 @@ export async function clearSheetRows(cfg: SheetConfig, f: typeof fetch = fetch):
   }
 }
 
-export const ANSWER_HEADERS = ['Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)'];
+export const ANSWER_HEADERS = ['Interest', 'Detail', 'Business (chat)', 'Best time to call', 'Call status', 'Call time (IST)', 'Reply on WhatsApp'];
 
 /**
- * Writes the chat answers and call booking into columns N to S of the lead's row (found by the Lead ID in column K).
+ * Writes the chat answers, call booking and a clickable WhatsApp link into columns N to T of the lead's row (found by the Lead ID in column K).
  * Returns false when the row is not in the sheet yet.
  */
-export async function updateSheetAnswers(cfg: SheetConfig, leadId: string, values: string[], f: typeof fetch = fetch): Promise<boolean> {
+export async function updateSheetAnswers(cfg: SheetConfig, leadId: string, values: string[], f: typeof fetch = fetch, link?: string): Promise<boolean> {
   const token = await accessToken(cfg, f);
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(cfg.sheetId)}/values`;
   const tab = `'${cfg.tab.replace(/'/g, "''")}'`;
@@ -116,14 +116,21 @@ export async function updateSheetAnswers(cfg: SheetConfig, leadId: string, value
   const idx = ids.findIndex((r) => r[0] === leadId);
   if (idx < 0) return false;
   const row = idx + 1;
-  const head = await f(`${base}/${encodeURIComponent(`${tab}!N1:S1`)}`, { headers: auth });
+  const head = await f(`${base}/${encodeURIComponent(`${tab}!N1:T1`)}`, { headers: auth });
   if (!head.ok) await fail('read', head);
   const have = ((await head.json()) as { values?: string[][] }).values?.[0] ?? [];
   if (have.length < ANSWER_HEADERS.length) {
-    const put = await f(`${base}/${encodeURIComponent(`${tab}!N1:S1`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [ANSWER_HEADERS] }) });
+    const put = await f(`${base}/${encodeURIComponent(`${tab}!N1:T1`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [ANSWER_HEADERS] }) });
     if (!put.ok) await fail('header write', put);
   }
   const res = await f(`${base}/${encodeURIComponent(`${tab}!N${row}:S${row}`)}?valueInputOption=RAW`, { method: 'PUT', headers: auth, body: JSON.stringify({ values: [values] }) });
   if (!res.ok) await fail('answers write', res);
+  if (link && /^https:\/\/wa\.me\/\d+\?text=[\w%.~!*'()-]*$/.test(link)) {
+    // A formula, so the cell is a clickable link. The URL is built from encoded characters only (checked above).
+    const cell = await f(`${base}/${encodeURIComponent(`${tab}!T${row}`)}?valueInputOption=USER_ENTERED`, {
+      method: 'PUT', headers: auth, body: JSON.stringify({ values: [[`=HYPERLINK("${link}","Reply on WhatsApp")`]] }),
+    });
+    if (!cell.ok) await fail('link write', cell);
+  }
   return true;
 }
