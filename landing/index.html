@@ -345,13 +345,16 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   <div class="pk">
     <article class="card rv"><h3>Start</h3><p class="for">Getting found</p>
       <ul><li>Website</li><li>Business email</li><li>Your own web address</li></ul>
-      <button class="btn ghost" data-pkg="Start">Book a call</button></article>
+      <button class="btn ghost" data-pkg="Start">Book a call</button>
+      <a class="btn ghost wa" data-wa="Start" target="_blank" rel="noopener" hidden>Chat on WhatsApp</a></article>
     <article class="card feat rv"><span class="flag">WhatsApp included</span><h3>Grow</h3><p class="for">Never missing an enquiry</p>
       <ul><li>Everything in Start</li><li>WhatsApp replies and quick questions</li><li>Instant alerts for every enquiry</li></ul>
-      <button class="btn" data-pkg="Grow">Book a call</button></article>
+      <button class="btn" data-pkg="Grow">Book a call</button>
+      <a class="btn ghost wa" data-wa="Grow" target="_blank" rel="noopener" hidden>Chat on WhatsApp</a></article>
     <article class="card rv"><h3>Run it all</h3><p class="for">Keeping customers coming back</p>
       <ul><li>Everything in Grow</li><li>Booking reminders</li><li>Win-back messages for customers who agreed</li></ul>
-      <button class="btn ghost" data-pkg="Run it all">Book a call</button></article>
+      <button class="btn ghost" data-pkg="Run it all">Book a call</button>
+      <a class="btn ghost wa" data-wa="Run it all" target="_blank" rel="noopener" hidden>Chat on WhatsApp</a></article>
   </div>
   <p class="note">Every package includes set-up and support.</p>
 </div></section>
@@ -372,6 +375,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     <div class="eyebrow">Let's begin</div>
     <h2 style="margin-top:14px">Let's plan <em>your set-up.</em></h2>
     <p class="lede">Tell us a little about your business. We'll message you on WhatsApp to plan it together.</p>
+    <a class="btn ghost wa" id="waGeneral" target="_blank" rel="noopener" hidden style="margin-top:24px">Prefer to chat? Open WhatsApp</a>
   </section>
   <section>
     <div class="form" id="form-card">
@@ -426,6 +430,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     document.querySelectorAll('.chip').forEach(function (c) { var on = c.getAttribute('data-biz') === cur; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); });
     $('f-biz').value = cur;
     $('mSubj').textContent = 'New Turnly lead: Asha (' + WORD[cur] + ')';
+    refreshWa();
   }
   document.querySelectorAll('.chip').forEach(function (c) { c.addEventListener('click', function () { applyBiz(c.getAttribute('data-biz')); $('chips').classList.add('collapsed'); $('chip-change').focus(); }); });
   $('chip-change').addEventListener('click', function () { $('chips').classList.remove('collapsed'); var on = document.querySelector('.chip.on'); if (on) on.focus(); });
@@ -504,10 +509,22 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   });
 
   /* ---------- packages choose a plan ---------- */
+  /* ---------- WhatsApp chat buttons: open a chat with the chosen package already typed ---------- */
+  // The number comes from the server (WHATSAPP_NUMBER). Live without a number: the buttons stay hidden.
+  // In the preview (no server) they open WhatsApp's own contact chooser so you can see the message.
+  var WA = (window.TURNLY_WHATSAPP || '').replace(/\D/g, '');
+  var waOn = !!WA || !API_BASE;
+  function an(w) { return (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w; }
+  function waHref(p) {
+    var m = 'Hi Turnly, I run ' + an(WORD[cur]) + ' and ' + (p ? 'I\'m interested in the ' + p + ' package.' : 'I\'d like to know more about your website, email and WhatsApp set-up.');
+    return 'https://wa.me/' + WA + '?text=' + encodeURIComponent(m);
+  }
+  function refreshWa() { document.querySelectorAll('.wa').forEach(function (a) { a.hidden = !waOn; a.href = waHref(a.getAttribute('data-wa') || pkg); }); }
   var pkg = '';
-  function setPkg(p) { pkg = p; $('pkgPill').classList.toggle('on', !!p); $('pkgText').textContent = p ? 'Interested in: ' + p : ''; }
+  function setPkg(p) { pkg = p; refreshWa(); $('pkgPill').classList.toggle('on', !!p); $('pkgText').textContent = p ? 'Interested in: ' + p : ''; }
   document.querySelectorAll('[data-pkg]').forEach(function (b) { b.addEventListener('click', function () { setPkg(b.getAttribute('data-pkg')); $('start').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); setTimeout(function () { $('f-name').focus({ preventScroll: true }); }, reduce ? 0 : 500); }); });
   $('pkgClear').addEventListener('click', function () { setPkg(''); });
+  refreshWa();
 
   /* ---------- the form (same behaviour as the live page) ---------- */
   // [country code, name, min digits, max digits, leading-digit pattern]. Same table as the backend (packages/core/src/phone.ts).

@@ -185,6 +185,12 @@ describe('landing page', () => {
     expect(res.body).toContain('window.TURNLY_API_BASE = location.origin');
     expect(res.body).toContain('Get my set-up plan');
     expect(res.body).toContain('window.TURNLY_CALENDLY_URL = ""');
+    expect(res.body).toContain('window.TURNLY_WHATSAPP = ""');
+    process.env.WHATSAPP_NUMBER = '+91 90531-51756';
+    try {
+      const withNumber = await app.inject({ method: 'GET', url: '/' });
+      expect(withNumber.body).toContain('window.TURNLY_WHATSAPP = "919053151756"'); // digits only
+    } finally { delete process.env.WHATSAPP_NUMBER; }
   });
 });
 
