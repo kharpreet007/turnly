@@ -12,6 +12,7 @@
   --f-body: 'Geist', system-ui, sans-serif; --f-serif: 'Instrument Serif', Georgia, serif; --f-mono: 'Geist Mono', ui-monospace, monospace;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 60; }
@@ -38,6 +39,8 @@ a { color: inherit; }
 .links { display: flex; gap: 26px; font-size: 14px; font-weight: 500; }
 .links a { text-decoration: none; color: var(--muted); transition: color .2s; }
 .links a:hover { color: var(--ink); }
+.navcta { display: flex; align-items: center; gap: 10px; }
+.wa svg { flex: none; }
 
 /* hero */
 .hero { position: relative; overflow: hidden; padding-block: clamp(36px, 6vw, 84px) clamp(56px, 7vw, 100px); }
@@ -225,6 +228,8 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
 
 @media (max-width: 960px) {
   .links { display: none; }
+  #waNav span { display: none; }
+  #waNav { padding: 10px 12px; }
   .heroGrid, .formGrid { grid-template-columns: minmax(0, 1fr); }
   .pillars, .pk { grid-template-columns: minmax(0, 1fr); }
   .steps { grid-template-columns: minmax(0, 1fr); padding-top: 0; padding-left: 34px; gap: 28px; }
@@ -246,7 +251,10 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
 <div class="nav" id="nav"><div class="in navrow">
   <a class="logo" href="#top"><span class="mark" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg></span>Turnly</a>
   <div class="links"><a href="#pillars">What you get</a><a href="#how">How it works</a><a href="#packages">Packages</a><a href="#faq">Questions</a></div>
-  <a class="btn small" href="#start">Get my set-up plan</a>
+  <div class="navcta">
+    <a class="btn ghost small wa" id="waNav" target="_blank" rel="noopener" hidden aria-label="Chat on WhatsApp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.3 18.6L4 20z"/><path d="M9 10c.5 2 2 3.5 4 4"/></svg><span>WhatsApp</span></a>
+    <a class="btn small" href="#start">Get my set-up plan</a>
+  </div>
 </div></div>
 
 <header class="hero" id="top">
@@ -345,16 +353,13 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   <div class="pk">
     <article class="card rv"><h3>Start</h3><p class="for">Getting found</p>
       <ul><li>Website</li><li>Business email</li><li>Your own web address</li></ul>
-      <button class="btn ghost" data-pkg="Start">Book a call</button>
-      <a class="btn ghost wa" data-wa="Start" target="_blank" rel="noopener" hidden>Chat on WhatsApp</a></article>
+      <button class="btn ghost" data-pkg="Start">Book a call</button></article>
     <article class="card feat rv"><span class="flag">WhatsApp included</span><h3>Grow</h3><p class="for">Never missing an enquiry</p>
       <ul><li>Everything in Start</li><li>WhatsApp replies and quick questions</li><li>Instant alerts for every enquiry</li></ul>
-      <button class="btn" data-pkg="Grow">Book a call</button>
-      <a class="btn ghost wa" data-wa="Grow" target="_blank" rel="noopener" hidden>Chat on WhatsApp</a></article>
+      <button class="btn" data-pkg="Grow">Book a call</button></article>
     <article class="card rv"><h3>Run it all</h3><p class="for">Keeping customers coming back</p>
       <ul><li>Everything in Grow</li><li>Booking reminders</li><li>Win-back messages for customers who agreed</li></ul>
-      <button class="btn ghost" data-pkg="Run it all">Book a call</button>
-      <a class="btn ghost wa" data-wa="Run it all" target="_blank" rel="noopener" hidden>Chat on WhatsApp</a></article>
+      <button class="btn ghost" data-pkg="Run it all">Book a call</button></article>
   </div>
   <p class="note">Every package includes set-up and support.</p>
 </div></section>
@@ -375,7 +380,6 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     <div class="eyebrow">Let's begin</div>
     <h2 style="margin-top:14px">Let's plan <em>your set-up.</em></h2>
     <p class="lede">Tell us a little about your business. We'll message you on WhatsApp to plan it together.</p>
-    <a class="btn ghost wa" id="waGeneral" target="_blank" rel="noopener" hidden style="margin-top:24px">Prefer to chat? Open WhatsApp</a>
   </section>
   <section>
     <div class="form" id="form-card">
