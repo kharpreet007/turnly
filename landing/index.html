@@ -224,6 +224,18 @@ form { display: flex; flex-direction: column; gap: 14px; }
 .ok p { color: var(--muted); max-width: 36ch; }
 .fallback { display: flex; flex-direction: column; gap: 10px; text-align: left; width: 100%; }
 .fallback textarea { font: 13px var(--f-mono); background: #0a1210; color: var(--ink); border: 1px solid #1f3a31; border-radius: 12px; padding: 12px; width: 100%; min-height: 110px; }
+.ask { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.cb { max-width: 88%; padding: 11px 15px; border-radius: 18px; font-size: 15px; line-height: 1.45; animation: pop .35s cubic-bezier(.3,1.4,.5,1); }
+.cb.bot { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.cb.me { align-self: flex-end; background: var(--mint); color: #06241d; font-weight: 600; border-bottom-right-radius: 6px; }
+.cb.typing { color: var(--muted); letter-spacing: .2em; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chips button { font: 600 14.5px var(--f-body); color: var(--mint); background: color-mix(in srgb, var(--green) 10%, transparent); border: 1px solid #2c5a4d; border-radius: 999px; padding: 10px 16px; cursor: pointer; transition: transform .15s, background .2s; }
+.chips button:hover { background: color-mix(in srgb, var(--green) 24%, transparent); transform: translateY(-2px); }
+.say { display: flex; gap: 8px; margin-top: 4px; }
+.say input { flex: 1; min-width: 0; font: 400 16px var(--f-body); color: var(--ink); background: #0a1210; border: 1px solid #1f3a31; border-radius: 999px; padding: 13px 18px; }
+.say input:focus { border-color: var(--green); outline: 0; box-shadow: 0 0 0 3px var(--glow); }
+.say .btn { width: auto; padding: 13px 22px; font-size: 15px; }
 .preview-note { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
 
 footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
@@ -395,12 +407,13 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     <div class="form" id="form-card">
       <h3>Get your set-up plan</h3>
       <p class="sub">Takes 20 seconds. No payment, no app.</p>
-      <form id="lead-form" novalidate>
-        <div class="pkgPill" id="pkgPill"><span id="pkgText"></span><button type="button" id="pkgClear" aria-label="Remove package choice">×</button></div>
-        <label class="fld" for="f-biz">Business type
+      <div class="pkgPill" id="pkgPill"><span id="pkgText"></span><button type="button" id="pkgClear" aria-label="Remove package choice">×</button></div>
+      <div class="ask" id="ask" aria-live="polite"></div>
+      <form id="lead-form" novalidate hidden>
+        <label class="fld" for="f-biz" hidden>Business type
           <select id="f-biz"><option value="salon">Salon</option><option value="clinic">Clinic</option><option value="gym">Gym</option><option value="coaching">Coaching</option><option value="restaurant">Restaurant</option><option value="retail">Retail</option><option value="property">Property</option><option value="other">Other</option></select>
         </label>
-        <label class="fld" for="f-name">Your name<input id="f-name" type="text" autocomplete="name" placeholder="Asha Verma"></label>
+        <label class="fld" for="f-name" hidden>Your name<input id="f-name" type="text" autocomplete="name" placeholder="Asha Verma"></label>
         <label class="fld" for="f-phone">WhatsApp number
           <div class="ph"><select id="f-cc" aria-label="Country code"><option value="91">+91 India</option></select>
           <input id="f-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="98765 43210"></div>
@@ -535,7 +548,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   function refreshWa() { document.querySelectorAll('.wa').forEach(function (a) { a.hidden = !waOn; a.href = waHref(); }); }
   var pkg = '';
   function setPkg(p) { pkg = p; refreshWa(); $('pkgPill').classList.toggle('on', !!p); $('pkgText').textContent = p ? 'Interested in: ' + p : ''; }
-  document.querySelectorAll('[data-pkg]').forEach(function (b) { b.addEventListener('click', function () { setPkg(b.getAttribute('data-pkg')); $('start').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); setTimeout(function () { $('f-name').focus({ preventScroll: true }); }, reduce ? 0 : 500); }); });
+  document.querySelectorAll('[data-pkg]').forEach(function (b) { b.addEventListener('click', function () { setPkg(b.getAttribute('data-pkg')); $('start').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); setTimeout(function () { var ci = $('c-in'); if (ci) ci.focus({ preventScroll: true }); }, reduce ? 0 : 500); }); });
   $('pkgClear').addEventListener('click', function () { setPkg(''); });
   refreshWa();
 
@@ -549,7 +562,49 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     sel.value = guess || '91';
   })();
   function showErr(t) { $('form-err').innerHTML = t ? '<div class="err">' + t + '</div>' : ''; }
-  var submitted = false;
+  var submitted = false, svc = '';
+
+  /* ---------- the chat that fills the form, one question at a time ---------- */
+  var BIZ = [['salon', 'Salon'], ['clinic', 'Clinic'], ['gym', 'Gym'], ['coaching', 'Coaching'], ['restaurant', 'Restaurant'], ['retail', 'Shop'], ['property', 'Real estate'], ['other', 'Other']];
+  var SVC = ['Website', 'Business email', 'WhatsApp', 'All of them'];
+  var askEl = $('ask'), cname = '';
+  function cbub(who, t) { var d = document.createElement('div'); d.className = 'cb ' + who; d.textContent = t; askEl.appendChild(d); return d; }
+  function ctl(node) { var old = $('cctl'); if (old) old.remove(); node.id = 'cctl'; askEl.appendChild(node); }
+  function botSays(t, then) {
+    var ty = cbub('bot typing', '•••');
+    setTimeout(function () { ty.className = 'cb bot'; ty.textContent = t; then(); }, reduce ? 0 : 550);
+  }
+  function chips(items, pick) {
+    var w = document.createElement('div'); w.className = 'chips';
+    items.forEach(function (it) { var b = document.createElement('button'); b.type = 'button'; b.textContent = it[1]; b.addEventListener('click', function () { var o = $('cctl'); if (o) o.remove(); cbub('me', it[1]); pick(it); }); w.appendChild(b); });
+    ctl(w);
+  }
+  function askName() {
+    botSays('Hi! Thanks for your interest in Turnly. What is your name?', function () {
+      var w = document.createElement('div'); w.className = 'say';
+      w.innerHTML = '<input id="c-in" type="text" autocomplete="name" placeholder="Type your name" maxlength="80"><button class="btn" type="button">Send</button>';
+      ctl(w);
+      var go = function () { var v = $('c-in').value.trim(); if (!v) return; cname = v; $('f-name').value = v; $('cctl').remove(); cbub('me', v); askBiz(); };
+      w.querySelector('button').addEventListener('click', go);
+      $('c-in').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    });
+  }
+  function askBiz() {
+    botSays('Nice to meet you, ' + cname.split(' ')[0] + '. What business do you run?', function () {
+      chips(BIZ, function (it) { $('f-biz').value = it[0]; askSvc(); });
+    });
+  }
+  function askSvc() {
+    botSays('That sounds great, we would love to help you. Which services are you looking for?', function () {
+      chips(SVC.map(function (x) { return [x, x]; }), function (it) { svc = it[0]; askPhone(); });
+    });
+  }
+  function askPhone() {
+    botSays('Thanks, ' + cname.split(' ')[0] + '. Last step: what is your WhatsApp number? We will message you there to plan your set-up.', function () {
+      $('lead-form').hidden = false; $('f-phone').focus({ preventScroll: true });
+    });
+  }
+  askName();
 
   $('lead-form').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -561,7 +616,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     showErr(''); submitted = true; $('f-go').disabled = true; $('f-go').textContent = 'Sending…';
 
     var body = { business_type: $('f-biz').value, name: name, country_code: '+' + cc, phone: raw, consent: true,
-      consent_text: $('consent-text').textContent, ad_source: source, wants: pkg ? ['Package: ' + pkg] : [],
+      consent_text: $('consent-text').textContent, ad_source: source, wants: (pkg ? ['Package: ' + pkg] : []).concat(svc ? ['Services: ' + svc] : []),
       event_id: 'lead_' + Date.now(), website: $('f-web').value, referrer: document.referrer || undefined };
     var q = new URLSearchParams(location.search); if (q.get('fbclid')) body.fbclid = q.get('fbclid');
 
@@ -584,7 +639,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     if (result === 'invalid') { submitted = false; return; }
     var first = esc(name.split(' ')[0]);
     if (result === 'fallback') {
-      var msg = 'Hi Turnly, I want a set-up plan.\nBusiness: ' + WORD[cur] + (pkg ? '\nPackage: ' + pkg : '') + '\nName: ' + name + '\nWhatsApp: +' + cc + digits;
+      var msg = 'Hi Turnly, I want a set-up plan.\nBusiness: ' + $('f-biz').value + (svc ? '\nServices: ' + svc : '') + (pkg ? '\nPackage: ' + pkg : '') + '\nName: ' + name + '\nWhatsApp: +' + cc + digits;
       $('form-card').innerHTML = '<div class="ok"><h3>One more step, ' + first + '</h3><p>We could not reach our system. Send us this message on WhatsApp instead.</p><div class="fallback"><textarea id="fb-msg" readonly>' + esc(msg) + '</textarea><button class="btn" type="button" id="fb-copy">Copy message</button></div></div>';
       $('fb-copy').addEventListener('click', function () { var t = $('fb-msg'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).catch(function () { document.execCommand && document.execCommand('copy'); }); this.textContent = 'Copied'; });
       return;
