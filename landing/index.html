@@ -271,11 +271,10 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   <div class="orb a"></div><div class="orb b"></div>
   <div class="in heroGrid">
     <div>
-      <span class="kicker"><i></i>Website, email and WhatsApp, set up for you</span>
-      <h1 id="h1"></h1>
-      <p class="lede">We build your website, set up your business email and connect WhatsApp, so every enquiry gets a quick, friendly reply while you work.</p>
-      <div class="ask" id="ask">I run a</div>
-      <div class="chips collapsed" id="chips" role="group" aria-labelledby="ask">
+      <h1 id="h1">Your website, business email and WhatsApp, <em>set up for you.</em></h1>
+      <p class="lede">Turnly helps small businesses get online. We build your website, set up your business email and connect WhatsApp, so customers can reach you and you never miss an enquiry.</p>
+      <div class="ask" id="ask" hidden>I run a</div>
+      <div class="chips collapsed" id="chips" hidden role="group" aria-labelledby="ask">
         <button type="button" class="chip" data-biz="salon">Salon &amp; beauty</button>
         <button type="button" class="chip" data-biz="clinic">Clinic &amp; dental</button>
         <button type="button" class="chip" data-biz="gym">Gym &amp; fitness</button>
@@ -287,7 +286,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
         <button type="button" class="chip-change" id="chip-change">Change business type</button>
       </div>
       <div class="cta"><a class="btn" href="#start">Get my set-up plan</a><a class="btn ghost" href="#pillars">See what's included</a></div>
-      <ul class="trust"><li>We set it all up for you</li><li>Support when you need it</li><li>Only messages customers who agreed</li></ul>
+      <ul class="trust" hidden><li>We set it all up for you</li><li>Support when you need it</li><li>Only messages customers who agreed</li></ul>
     </div>
 
     <div class="stage" id="stage" aria-label="Animation: a customer fills your website form, you get an email, and WhatsApp starts the chat">
@@ -440,7 +439,6 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   function applyBiz(key) {
     cur = HEAD[key] ? key : 'salon';
     var hd = HEAD[cur];
-    $('h1').innerHTML = esc(hd[0]) + ' <em>' + esc(hd[1]) + '</em>';
     document.querySelectorAll('.chip').forEach(function (c) { var on = c.getAttribute('data-biz') === cur; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); });
     $('f-biz').value = cur;
     $('mSubj').textContent = 'New Turnly lead: Asha (' + WORD[cur] + ')';
