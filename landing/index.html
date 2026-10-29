@@ -144,6 +144,13 @@ section { padding-block: clamp(64px, 9vw, 112px); }
 /* pillars */
 .pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .pillar { --mx: 50%; --my: 0%; position: relative; border: 1px solid var(--line); border-radius: 22px; padding: 28px 26px 30px; background: radial-gradient(420px circle at var(--mx) var(--my), rgba(95,224,184,.16), transparent 60%), var(--panel); overflow: hidden; transition: border-color .3s, transform .3s; }
+.incl { margin-top: 28px; border: 1px solid var(--line); border-radius: 22px; padding: 26px clamp(20px, 3vw, 32px); background: var(--panel); }
+.incl ul { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.incl li { display: flex; flex-direction: column; gap: 4px; padding-left: 16px; border-left: 2px solid var(--green); }
+.incl li b { font-size: 16px; }
+.incl li span { color: var(--muted); font-size: 13.5px; }
+@media (max-width: 960px) { .incl ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .incl ul { grid-template-columns: minmax(0, 1fr); } }
 .pillar:hover { border-color: #2c5a4d; transform: translateY(-4px); }
 .ico { width: 48px; height: 48px; border-radius: 14px; background: var(--deep2); color: var(--mint); display: grid; place-items: center; margin-bottom: 20px; }
 .pillar .tag { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--green); }
@@ -323,14 +330,14 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
   <div class="pillars">
     <article class="pillar rv">
       <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></div>
-      <div class="tag">Website</div><h3>A page that does the asking for you</h3>
-      <p>Your services, prices and a simple enquiry form, on a clean page that works on every phone. You get your own web address, and we make changes when you need them.</p>
-      <ul><li>Mobile-first design</li><li>Enquiry form that reaches you instantly</li><li>Edits included</li></ul>
+      <div class="tag">Website</div><h3>A mobile-first website that brings in enquiries</h3>
+      <p>Most of your customers will open your site on a phone, so we design it for the phone first. Your services, your details and a simple enquiry form, on your own web address.</p>
+      <ul><li>Designed for phones first</li><li>Enquiry form that reaches you instantly</li><li>Edits included until your site goes live</li></ul>
     </article>
     <article class="pillar rv">
       <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 8 8 6 8-6"/></svg></div>
       <div class="tag">Email</div><h3>Look like the real business you are</h3>
-      <p>A professional address like you@yourbusiness.in, a tidy signature, and an email to you the moment someone enquires.</p>
+      <p>A professional address like you@yourbusiness.in, set up and ready to use, so customers trust you from the first message. You also get an email the moment someone enquires.</p>
       <ul><li>Business email set up with GoDaddy</li><li>Instant alert for every new enquiry</li><li>Ready-made reply templates</li></ul>
     </article>
     <article class="pillar rv">
@@ -340,6 +347,9 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
       <ul><li>Quick replies, any time of day</li><li>Booking requests collected for you</li><li>Every enquiry saved to a sheet you can open anywhere</li></ul>
     </article>
   </div>
+  <div class="incl rv"><div class="eyebrow">Included in every set-up</div>
+    <ul><li><b>Mobile-first website</b><span>Built for phones first</span></li><li><b>Business email</b><span>you@yourbusiness.in</span></li><li><b>Edits until you go live</b><span>We change it until you are happy</span></li><li><b>6 months of support</b><span>Help whenever you need it</span></li></ul>
+  </div>
 </div></section>
 
 <section class="how" id="how"><div class="in">
@@ -348,7 +358,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     <div class="step"><small>Step 1</small><h3>Tell us about your business</h3><p>A short chat about your services, prices and hours.</p></div>
     <div class="step"><small>Step 2</small><h3>We build and connect it all</h3><p>Website, email and WhatsApp, set up for you.</p></div>
     <div class="step"><small>Step 3</small><h3>You check it and go live</h3><p>Nothing goes out until you are happy.</p></div>
-    <div class="step"><small>Step 4</small><h3>We stay on hand</h3><p>Support and small changes, so it keeps working.</p></div>
+    <div class="step"><small>Step 4</small><h3>We stay on hand</h3><p>6 months of support after you go live, so it keeps working.</p></div>
   </div>
 </div></section>
 
@@ -370,7 +380,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
       <ul><li>Everything in Grow</li><li>Booking reminders</li><li>Win-back messages for customers who agreed</li></ul>
       <button class="btn ghost" data-pkg="Run it all">Book a call</button></article>
   </div>
-  <p class="note">Every package includes set-up and support.</p>
+  <p class="note">Every package includes set-up, edits until you go live and 6 months of support.</p>
 </div></section>
 
 <section id="faq"><div class="in">
@@ -380,7 +390,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); }
     <details><summary>Which WhatsApp number do you use?</summary><p>Your business number. We guide you through it. A spare SIM is often the simplest choice.</p></details>
     <details><summary>Will my customers get spam?</summary><p>No. We only message people who agreed to hear from you, and anyone can reply STOP at any time.</p></details>
     <details><summary>Can I still reply myself?</summary><p>Yes. You can take over any chat whenever you like.</p></details>
-    <details><summary>What if something stops working?</summary><p>Tell us. Support is part of every package.</p></details>
+    <details><summary>What if something stops working?</summary><p>Tell us. Every package includes 6 months of support.</p></details>
   </div>
 </div></section>
 
