@@ -330,3 +330,27 @@ describe('reset test data', () => {
     expect((await app.inject({ method: 'GET', url: '/admin/reset-leads' })).statusCode).toBe(401);
   });
 });
+
+describe('GET /book/:code', () => {
+  it('forwards to Calendly with the lead filled in, and falls back to the plain link', async () => {
+    const prev = process.env.CALENDLY_URL;
+    process.env.CALENDLY_URL = 'https://calendly.com/kharpreet007/15min';
+    try {
+      const h = makeHarness();
+      const app = await h.build();
+      const id = (await post(app, validLead())).json().lead as string;
+      const res = await app.inject({ method: 'GET', url: `/book/${id.replace(/-/g, '').slice(0, 12)}` });
+      expect(res.statusCode).toBe(302);
+      const to = new URL(res.headers.location as string);
+      expect(to.origin + to.pathname).toBe('https://calendly.com/kharpreet007/15min');
+      expect(to.searchParams.get('utm_content')).toBe(id);
+      expect(to.searchParams.get('a1')).toBe('+919876543210');
+
+      const unknown = await app.inject({ method: 'GET', url: '/book/ffffffffffff' });
+      expect(unknown.statusCode).toBe(302);
+      expect(unknown.headers.location).toBe('https://calendly.com/kharpreet007/15min');
+    } finally {
+      if (prev === undefined) delete process.env.CALENDLY_URL; else process.env.CALENDLY_URL = prev;
+    }
+  });
+});

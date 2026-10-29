@@ -23,6 +23,11 @@ describe('WhatsApp reply link', () => {
     expect(text).toContain('https://calendly.com/kharpreet007/15min?');
     expect(text).toContain(`utm_content=${lead.id}`);
   });
+  it('uses a short link on our own address when PUBLIC_BASE_URL is set', () => {
+    const text = followUpText(lead, { ...env, PUBLIC_BASE_URL: 'https://turnly.example/' });
+    expect(text).toContain('\nhttps://turnly.example/book/630f659e9663');
+    expect(text).not.toContain('calendly.com');
+  });
   it('not booked and no Calendly link: just the message', () => {
     expect(followUpText(lead, {})).not.toContain('http');
   });

@@ -22,6 +22,14 @@ export function calendlyUrl(base: string | undefined, lead: { id?: string; name:
   return b + (b.includes('?') ? '&' : '?') + q.toString();
 }
 
+/** Short link that forwards to the lead's Calendly link (/book/<first 12 characters of their id>), so messages stay tidy. */
+export function bookingUrl(env: Env, lead: { id?: string; name: string; phone: string }): string {
+  const full = calendlyUrl(env.CALENDLY_URL, lead);
+  const base = env.PUBLIC_BASE_URL?.trim().replace(/\/$/, '');
+  if (!full || !base || !lead.id) return full;
+  return `${base}/book/${lead.id.replace(/-/g, '').slice(0, 12)}`;
+}
+
 /** e.g. "Tue, 4 Nov, 3:00 pm GMT+5:30" in the given time zone (the lead's own, if known). */
 export function formatWhen(start: Date | string, tz?: string | null): string {
   const d = new Date(start);
@@ -35,7 +43,7 @@ export function followUpText(lead: LeadLinkInfo, env: Env = process.env): string
     const sign = env.OWNER_NAME?.trim() ? `Speak soon, ${env.OWNER_NAME.trim()} from Turnly.` : 'Speak soon, the Turnly team.';
     return `Hi ${lead.name}, we have got your set-up request for ${formatWhen(lead.callStart, lead.callTz)}. ${sign}`;
   }
-  const cal = calendlyUrl(env.CALENDLY_URL, lead);
+  const cal = bookingUrl(env, lead);
   return `Hi ${lead.name}, Someone from Turnly will message you on WhatsApp at +${lead.phone.replace(/\D/g, '')} to plan your set-up. Please book a time that suits you for the set-up call.` + (cal ? `\n${cal}` : '');
 }
 

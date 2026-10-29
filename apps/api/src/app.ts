@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createLead, exportLeads, callLabel, whatsAppLink, emailConfig, maskEmail, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
+  createLead, exportLeads, callLabel, whatsAppLink, calendlyUrl, emailConfig, maskEmail, sheetConfig, sheetInfo, resetAllLeads, clearSheetRows, contactFootprint, deleteContact, ProtectedNumberError, twilioConfig, ist, twilioInboundToMeta, twilioStatusToMeta, verifyTwilioSignature, PHASE0_TEMPLATES, setTemplateStatus, submitTemplate, syncTemplateStatuses, upsertTemplateDefs, syncPendingLeadsToSheet, leadInput, leadsToCsv, LeadRateLimited, listLeads, PhoneError, verifySignature,
   type Db, type Queue,
 } from '@turnly/core';
 import type { Config } from './config.ts';
@@ -35,6 +35,19 @@ export async function buildApp(deps: { db: Db; queue: Queue; config: Config }) {
       '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
       '<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>' +
       `<script>window.TURNLY_API_BASE = location.origin; window.TURNLY_CALENDLY_URL = ${JSON.stringify(process.env.CALENDLY_URL ?? '').replace(/</g, '\\u003c')}; window.TURNLY_WHATSAPP = ${JSON.stringify((process.env.WHATSAPP_NUMBER ?? '').replace(/\D/g, ''))};</script>` + page);
+  });
+
+  // Short booking link used in WhatsApp messages: forwards to Calendly with the lead's name, number and id filled in.
+  app.get<{ Params: { code: string } }>('/book/:code', async (req, reply) => {
+    const cal = process.env.CALENDLY_URL?.trim();
+    if (!cal) return reply.code(404).send('Not found');
+    const code = req.params.code.toLowerCase();
+    let target = cal;
+    if (/^[0-9a-f]{12}$/.test(code)) {
+      const { rows } = await db.query(`select id, name, phone_e164 from leads where replace(id::text, '-', '') like $1 limit 2`, [code + '%']);
+      if (rows.length === 1) target = calendlyUrl(cal, { id: rows[0].id, name: rows[0].name, phone: rows[0].phone_e164 });
+    }
+    return reply.redirect(target);
   });
 
   app.get('/healthz', async () => {
